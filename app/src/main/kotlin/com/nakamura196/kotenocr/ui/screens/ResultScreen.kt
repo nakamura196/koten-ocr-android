@@ -95,6 +95,11 @@ import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.draw.scale
 import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.runtime.rememberUpdatedState
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.draw.clipToBounds
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.asImageBitmap
@@ -128,82 +133,6 @@ import kotlinx.coroutines.launch
 import kotlin.math.hypot
 import kotlin.math.max
 import kotlin.math.min
-
-/**
- * Outside line-number tag layout (`LineTagLayout` in `ResultOverlayView.swift` v2.1).
- * Places each vermilion number capsule outside the start of the line (above vertical lines,
- * left of horizontal lines) with a minimum legible height (`9dp`) and collision offset so
- * thin side-note lines (`傍書`) remain readable without covering the first character.
- */
-object LineTagLayout {
-    fun strokeWidthPx(boxW: Float, boxH: Float, density: Float): Float {
-        val shorter = min(boxW, boxH)
-        return (shorter * 0.08f).coerceIn(1.2f * density, 2.2f * density)
-    }
-
-    data class TagFrame(
-        val rect: RectF,
-        val textSizePx: Float
-    )
-
-    fun placeAll(
-        boxes: List<RectF>,
-        labels: List<String>,
-        bounds: RectF,
-        density: Float
-    ): List<TagFrame> {
-        val placed = mutableListOf<RectF>()
-        val result = mutableListOf<TagFrame>()
-        val minLegibleH = 9f * density
-        val maxTagH = 18f * density
-        val gap = 2f * density
-
-        for (i in boxes.indices) {
-            val box = boxes[i]
-            val label = labels.getOrElse(i) { "${i + 1}" }
-            val shorter = max(1f, min(box.width(), box.height()))
-            val tagH = (shorter * 0.65f).coerceIn(minLegibleH, maxTagH)
-            val charW = tagH * 0.58f
-            val tagW = max(tagH, charW * max(1, label.length) + tagH * 0.45f)
-            val isVertical = box.height() >= box.width()
-
-            var x: Float
-            var y: Float
-            if (isVertical) {
-                x = box.centerX() - tagW * 0.5f
-                y = box.top - tagH - gap
-                if (y < bounds.top) {
-                    y = box.top + gap
-                }
-            } else {
-                x = box.left - tagW - gap
-                y = box.centerY() - tagH * 0.5f
-                if (x < bounds.left) {
-                    x = box.left + gap
-                }
-            }
-            x = x.coerceIn(bounds.left, max(bounds.left, bounds.right - tagW))
-            y = y.coerceIn(bounds.top, max(bounds.top, bounds.bottom - tagH))
-
-            var candidate = RectF(x, y, x + tagW, y + tagH)
-            // Nudge down/left slightly if colliding with an already placed tag
-            var attempts = 0
-            while (attempts < 4 && placed.any { RectF.intersects(it, candidate) }) {
-                if (isVertical) {
-                    val ny = (candidate.top + tagH * 0.85f).coerceAtMost(max(bounds.top, bounds.bottom - tagH))
-                    candidate = RectF(candidate.left, ny, candidate.right, ny + tagH)
-                } else {
-                    val ny = (candidate.top + tagH * 0.85f).coerceAtMost(max(bounds.top, bounds.bottom - tagH))
-                    candidate = RectF(candidate.left, ny, candidate.right, ny + tagH)
-                }
-                attempts++
-            }
-            placed.add(candidate)
-            result.add(TagFrame(rect = candidate, textSizePx = tagH * 0.66f))
-        }
-        return result
-    }
-}
 
 /**
  * OCR Result screen (`ResultOverlayView.swift` + `ContentView.resultView` v2.1 port).
@@ -432,16 +361,58 @@ fun ResultScreen(
                     }
                 }
 
-                // Upper half: Manuscript image + outside line-number tags (or BoxEditCanvas)
+                // Upper half: the page image (pinch / double-tap to zoom, in view and edit mode),
+                // with the line boxes and outside number tags, or the box editor.
                 var imageAreaSize by remember { mutableStateOf(IntSize.Zero) }
-                val fittedRect = remember(imageAreaSize, bitmap) {
-                    computeResultFittedRect(
-                        containerW = imageAreaSize.width.toFloat(),
-                        containerH = imageAreaSize.height.toFloat(),
-                        imageW = bitmap.width.toFloat(),
-                        imageH = bitmap.height.toFloat(),
-                        inset = 0f
-                    )
+                var pageZoom by remember(bitmap) { mutableStateOf(PageZoom.State()) }
+                val containerSize = Size(imageAreaSize.width.toFloat(), imageAreaSize.height.toFloat())
+                val fit = remember(imageAreaSize, bitmap) {
+                    PageStage.fitRect(containerSize, bitmap.width.toFloat(), bitmap.height.toFloat())
+                }
+                val stageOf = {
+                    PageStage(containerSize, fit, bitmap.width.toFloat(), bitmap.height.toFloat(), pageZoom.zoom, pageZoom.offset)
+                }
+                val density = LocalDensity.current.density
+                val onTapPage by rememberUpdatedState { point: Offset ->
+                    // The line under the finger (the one whose centre is nearest if several overlap).
+                    var bestPos = -1
+                    var bestOrigIdx = -1
+                    var bestDist = Float.MAX_VALUE
+                    visibleItems.forEachIndexed { visPos, item ->
+                        val r = BoxEditorState.boxRect(item.detection.box)
+                        if (r.contains(point)) {
+                            val d = (r.center - point).getDistance()
+                            if (d < bestDist) {
+                                bestDist = d
+                                bestPos = visPos
+                                bestOrigIdx = item.originalIndex
+                            }
+                        }
+                    }
+                    if (bestPos >= 0 && showBoxes) {
+                        selectedOriginalIndex = if (selectedOriginalIndex == bestOrigIdx) null else bestOrigIdx
+                        scope.launch { listState.animateScrollToItem(bestPos) }
+                    }
+                }
+                val pageTouch: PageTouch = remember(currentEditor, fit, imageAreaSize) {
+                    if (currentEditor != null) {
+                        BoxEditTouch(
+                            editor = currentEditor,
+                            stage = stageOf,
+                            zoom = { pageZoom },
+                            onZoom = { pageZoom = it },
+                            grips = BoxEditGeometry.Grips.forDensity(density)
+                        )
+                    } else {
+                        ViewPageTouch(
+                            stage = stageOf,
+                            zoom = { pageZoom },
+                            onZoom = { pageZoom = it },
+                            selection = { selectedOriginalIndex },
+                            restoreSelection = { selectedOriginalIndex = it },
+                            onTap = { onTapPage(it) }
+                        )
+                    }
                 }
 
                 Box(
@@ -450,36 +421,48 @@ fun ResultScreen(
                         .weight(if (currentEditor != null) 0.56f else 0.40f)
                         .padding(start = 14.dp, end = 14.dp, top = 4.dp)
                         .kotenMount(padding = 6.dp)
-                        .onSizeChanged { imageAreaSize = it },
-                    contentAlignment = Alignment.Center
+                        .onSizeChanged { imageAreaSize = it }
+                        .clipToBounds()
+                        .pageGestures(
+                            key = pageTouch,
+                            zoom = { pageZoom },
+                            onZoom = { pageZoom = it },
+                            touch = pageTouch
+                        )
                 ) {
-                    Image(
-                        bitmap = bitmap.asImageBitmap(),
-                        contentDescription = null,
-                        contentScale = ContentScale.Fit,
-                        modifier = Modifier.fillMaxSize()
-                    )
+                    Box(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .graphicsLayer {
+                                scaleX = pageZoom.zoom
+                                scaleY = pageZoom.zoom
+                                translationX = pageZoom.offset.x
+                                translationY = pageZoom.offset.y
+                            }
+                    ) {
+                        Image(
+                            bitmap = bitmap.asImageBitmap(),
+                            contentDescription = null,
+                            contentScale = ContentScale.Fit,
+                            modifier = Modifier.fillMaxSize()
+                        )
 
-                    if (fittedRect.width() > 0f && fittedRect.height() > 0f) {
-                        if (currentEditor != null) {
-                            BoxEditCanvas(
-                                editor = currentEditor,
-                                displayRect = fittedRect
-                            )
-                        } else if (showBoxes && visibleItems.isNotEmpty()) {
-                            ResultBoxesOverlay(
-                                visibleItems = visibleItems,
-                                selectedOriginalIndex = selectedOriginalIndex,
-                                imageWidth = bitmap.width,
-                                imageHeight = bitmap.height,
-                                displayRect = fittedRect,
-                                onTapBox = { origIdx, visiblePosition ->
-                                    selectedOriginalIndex = if (selectedOriginalIndex == origIdx) null else origIdx
-                                    scope.launch {
-                                        listState.animateScrollToItem(visiblePosition)
-                                    }
-                                }
-                            )
+                        if (fit.width > 0f && fit.height > 0f) {
+                            if (currentEditor != null) {
+                                BoxEditDrawing(
+                                    editor = currentEditor,
+                                    fit = fit,
+                                    zoom = { pageZoom.zoom }
+                                )
+                            } else if (showBoxes && visibleItems.isNotEmpty()) {
+                                ResultBoxesDrawing(
+                                    visibleItems = visibleItems,
+                                    selectedOriginalIndex = selectedOriginalIndex,
+                                    imageWidth = bitmap.width,
+                                    fit = fit,
+                                    zoom = { pageZoom.zoom }
+                                )
+                            }
                         }
                     }
                 }
@@ -885,137 +868,98 @@ fun ResultScreen(
     }
 }
 
+/**
+ * One-finger touches on the page outside the box editor: a tap selects the line under it, a drag
+ * pans the zoomed page. The first tap of a double tap must not leave its selection change behind.
+ */
+private class ViewPageTouch(
+    private val stage: () -> PageStage,
+    private val zoom: () -> PageZoom.State,
+    private val onZoom: (PageZoom.State) -> Unit,
+    private val selection: () -> Int?,
+    private val restoreSelection: (Int?) -> Unit,
+    private val onTap: (Offset) -> Unit
+) : PageTouch {
+    private var start = PageZoom.State()
+    private var beforeLastTap: Int? = null
+
+    override fun begin(at: Offset) {
+        start = zoom()
+    }
+
+    override fun drag(at: Offset, translation: Offset) {
+        if (start.zoom > PageZoom.MIN) onZoom(PageZoom.panned(start, translation, stage().containerSize))
+    }
+
+    override fun end(at: Offset, moved: Boolean) {
+        if (moved) return
+        beforeLastTap = selection()
+        onTap(stage().toImage(at))
+    }
+
+    override fun cancel() = Unit
+
+    override fun doubleTap(at: Offset) {
+        // The first tap of the pair toggled the selection; the second would toggle it back
+        // only if it hit the same line, so restore what was selected before the pair.
+        restoreSelection(beforeLastTap)
+    }
+}
+
+/**
+ * The line boxes and their outside number tags (iOS `ResultOverlayView`): each line in its palette
+ * colour, outlines as thick as the page's lines allow ([LineTagLayout.boxLineWidth]) and kept that
+ * thick on screen when zoomed; the tags zoom with the image.
+ */
 @Composable
-private fun ResultBoxesOverlay(
+private fun ResultBoxesDrawing(
     visibleItems: List<ConfidenceFilter.IndexedDetection>,
     selectedOriginalIndex: Int?,
     imageWidth: Int,
-    imageHeight: Int,
-    displayRect: RectF,
-    onTapBox: (originalIndex: Int, visiblePosition: Int) -> Unit
+    fit: Rect,
+    zoom: () -> Float
 ) {
-    val shuColor = KotenColor.shu
     val shuFill = KotenColor.shuFill
-
-    Canvas(
-        modifier = Modifier
-            .fillMaxSize()
-            .pointerInput(visibleItems, displayRect) {
-                detectTapGestures { pos ->
-                    val sx = displayRect.width() / imageWidth.toFloat().coerceAtLeast(1f)
-                    val sy = displayRect.height() / imageHeight.toFloat().coerceAtLeast(1f)
-                    var bestPos = -1
-                    var bestOrigIdx = -1
-                    var bestDist = Float.MAX_VALUE
-
-                    visibleItems.forEachIndexed { visPos, item ->
-                        val b = item.detection.box
-                        if (b.size < 4) return@forEachIndexed
-                        val left = displayRect.left + b[0] * sx
-                        val top = displayRect.top + b[1] * sy
-                        val right = displayRect.left + b[2] * sx
-                        val bottom = displayRect.top + b[3] * sy
-                        if (pos.x in left..right && pos.y in top..bottom) {
-                            val cx = (left + right) * 0.5f
-                            val cy = (top + bottom) * 0.5f
-                            val d = hypot(pos.x - cx, pos.y - cy)
-                            if (d < bestDist) {
-                                bestDist = d
-                                bestPos = visPos
-                                bestOrigIdx = item.originalIndex
-                            }
-                        }
-                    }
-
-                    if (bestPos >= 0) {
-                        onTapBox(bestOrigIdx, bestPos)
-                    }
-                }
-            }
-    ) {
-        val sx = displayRect.width() / imageWidth.toFloat().coerceAtLeast(1f)
-        val sy = displayRect.height() / imageHeight.toFloat().coerceAtLeast(1f)
-
-        val scaledBoxes = visibleItems.map { item ->
-            val b = item.detection.box
-            RectF(
-                displayRect.left + b[0] * sx,
-                displayRect.top + b[1] * sy,
-                displayRect.left + b[2] * sx,
-                displayRect.top + b[3] * sy
-            )
+    Canvas(modifier = Modifier.fillMaxSize()) {
+        val s = fit.width / imageWidth.toFloat().coerceAtLeast(1f)
+        val z = max(zoom(), 0.01f)
+        val rects = visibleItems.map { item ->
+            val r = BoxEditorState.boxRect(item.detection.box)
+            Rect(fit.left + r.left * s, fit.top + r.top * s, fit.left + r.right * s, fit.top + r.bottom * s)
         }
-        val labels = visibleItems.indices.map { "${it + 1}" }
-        val tagFrames = LineTagLayout.placeAll(
-            boxes = scaledBoxes,
-            labels = labels,
-            bounds = displayRect,
-            density = density
-        )
+        val lineWidth = LineTagLayout.boxLineWidth(rects, density) / z
+        visibleItems.forEachIndexed { idx, item ->
+            val r = rects[idx]
+            val isSelected = item.originalIndex == selectedOriginalIndex
+            val color = KotenColor.box(idx)
+            drawRect(color.copy(alpha = if (isSelected) 0.3f else 0.08f), r.topLeft, r.size)
+            drawRect(color, r.topLeft, r.size, style = Stroke(width = if (isSelected) lineWidth * 2f else lineWidth))
+        }
 
+        // Numbers sit at the start of each line, outside the box, so they never hide the first characters.
+        val tags = LineTagLayout.frames(rects, fit, density)
         val textPaint = android.graphics.Paint().apply {
             color = android.graphics.Color.WHITE
             isFakeBoldText = true
             isAntiAlias = true
             textAlign = android.graphics.Paint.Align.CENTER
         }
-
-        // Draw boxes
-        visibleItems.forEachIndexed { idx, item ->
-            val rect = scaledBoxes[idx]
-            val isSelected = item.originalIndex == selectedOriginalIndex
-            val strokeW = if (isSelected) {
-                2.6.dp.toPx()
-            } else {
-                LineTagLayout.strokeWidthPx(rect.width(), rect.height(), density)
-            }
-            if (isSelected) {
-                drawRoundRect(
-                    color = shuFill.copy(alpha = 0.22f),
-                    topLeft = Offset(rect.left, rect.top),
-                    size = Size(rect.width(), rect.height()),
-                    cornerRadius = CornerRadius(2.dp.toPx())
-                )
-            }
+        val order = visibleItems.indices.sortedBy { if (visibleItems[it].originalIndex == selectedOriginalIndex) 1 else 0 }
+        for (idx in order) {
+            val tr = tags[idx]
+            val isSelected = visibleItems[idx].originalIndex == selectedOriginalIndex
+            val alpha = if (isSelected) 1f else 0.85f
+            val radius = CornerRadius(tr.height / 2f)
+            drawRoundRect(shuFill.copy(alpha = alpha), tr.topLeft, tr.size, radius)
             drawRoundRect(
-                color = if (isSelected) shuColor else shuColor.copy(alpha = 0.85f),
-                topLeft = Offset(rect.left, rect.top),
-                size = Size(rect.width(), rect.height()),
-                cornerRadius = CornerRadius(2.dp.toPx()),
-                style = Stroke(width = strokeW)
+                Color.White.copy(alpha = alpha), tr.topLeft, tr.size, radius,
+                style = Stroke(width = max(0.5f * density, tr.height / 16f))
             )
-        }
-
-        // Draw outside line-number tags
-        visibleItems.forEachIndexed { idx, item ->
-            val tag = tagFrames[idx]
-            val tr = tag.rect
-            val isSelected = item.originalIndex == selectedOriginalIndex
-            val r = tr.height() * 0.5f
-
-            drawRoundRect(
-                color = if (isSelected) shuFill else shuFill.copy(alpha = 0.90f),
-                topLeft = Offset(tr.left, tr.top),
-                size = Size(tr.width(), tr.height()),
-                cornerRadius = CornerRadius(r, r)
-            )
-            drawRoundRect(
-                color = Color.White.copy(alpha = 0.92f),
-                topLeft = Offset(tr.left, tr.top),
-                size = Size(tr.width(), tr.height()),
-                cornerRadius = CornerRadius(r, r),
-                style = Stroke(width = if (isSelected) 1.5.dp.toPx() else 0.8.dp.toPx())
-            )
-
-            textPaint.textSize = tag.textSizePx
+            textPaint.textSize = tr.height * 0.75f
+            textPaint.alpha = (alpha * 255).toInt()
             val fm = textPaint.fontMetrics
-            val baseline = tr.centerY() - (fm.ascent + fm.descent) * 0.5f
-            drawContext.canvas.nativeCanvas.drawText(
-                labels[idx],
-                tr.centerX(),
-                baseline,
-                textPaint
-            )
+            val baseline = tr.center.y - (fm.ascent + fm.descent) * 0.5f
+            drawContext.canvas.nativeCanvas.drawText("${idx + 1}", tr.center.x, baseline, textPaint)
         }
     }
 }
@@ -1342,30 +1286,4 @@ private fun TipRow(
             color = KotenColor.ink
         )
     }
-}
-
-private fun computeResultFittedRect(
-    containerW: Float,
-    containerH: Float,
-    imageW: Float,
-    imageH: Float,
-    inset: Float
-): RectF {
-    val availW = max(1f, containerW - inset * 2f)
-    val availH = max(1f, containerH - inset * 2f)
-    if (imageW <= 0f || imageH <= 0f) return RectF(0f, 0f, availW, availH)
-    val imgAspect = imageW / imageH
-    val boxAspect = availW / availH
-    val drawW: Float
-    val drawH: Float
-    if (imgAspect > boxAspect) {
-        drawW = availW
-        drawH = availW / imgAspect
-    } else {
-        drawH = availH
-        drawW = availH * imgAspect
-    }
-    val left = inset + (availW - drawW) * 0.5f
-    val top = inset + (availH - drawH) * 0.5f
-    return RectF(left, top, left + drawW, top + drawH)
 }
