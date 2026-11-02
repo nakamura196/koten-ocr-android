@@ -10,6 +10,7 @@ import android.os.Build
 import android.provider.MediaStore
 import android.provider.Settings
 import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.IntentSenderRequest
 import androidx.activity.result.PickVisualMediaRequest
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.camera.core.CameraSelector
@@ -44,6 +45,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.CameraAlt
 import androidx.compose.material.icons.filled.FlashOff
 import androidx.compose.material.icons.filled.FlashOn
+import androidx.compose.material.icons.filled.DocumentScanner
 import androidx.compose.material.icons.filled.History
 import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.PhotoLibrary
@@ -61,6 +63,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -88,6 +91,8 @@ import com.nakamura196.kotenocr.ui.theme.KotenProminentButton
 import com.nakamura196.kotenocr.ui.theme.ScanCorners
 import com.nakamura196.kotenocr.ui.theme.WashiBackground
 import com.nakamura196.kotenocr.ui.theme.minchoStyle
+import com.nakamura196.kotenocr.util.CaptureMode
+import com.nakamura196.kotenocr.util.DocumentScanner
 import com.nakamura196.kotenocr.util.ImageIntake
 import com.nakamura196.kotenocr.util.TiltMonitor
 import kotlinx.coroutines.Dispatchers
@@ -152,7 +157,60 @@ fun CameraScreen(
         }
     }
 
+    // Document scanner (ML Kit, Google Play services). Cancelled or failed -> stay on the camera.
+    val scannerSupported = remember { DocumentScanner.isSupported(context) }
+    var scannerLaunched by remember { mutableStateOf(false) }
+    var scannerHandled by rememberSaveable { mutableStateOf(false) }
+    val scannerLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.StartIntentSenderForResult()
+    ) { result ->
+        scannerLaunched = false
+        val uri = if (result.resultCode == android.app.Activity.RESULT_OK) {
+            DocumentScanner.firstPageUri(result.data)
+        } else null
+        if (uri == null) {
+            settingsManager.lastCaptureMode = CaptureMode.CAMERA
+        } else {
+            scope.launch {
+                val bitmap = withContext(Dispatchers.IO) { ImageIntake.loadFromUri(context, uri) }
+                if (bitmap != null) {
+                    settingsManager.lastCaptureMode = CaptureMode.SCAN
+                    onImageCaptured(bitmap)
+                } else {
+                    settingsManager.lastCaptureMode = CaptureMode.CAMERA
+                }
+            }
+        }
+    }
+    val openScanner: () -> Unit = openScanner@{
+        val activity = context.findActivity() ?: return@openScanner
+        if (scannerLaunched) return@openScanner
+        scannerLaunched = true
+        // Saved as SCAN only when a page actually comes back (iOS does the same).
+        DocumentScanner.start(
+            activity,
+            onReady = { sender ->
+                try {
+                    scannerLauncher.launch(IntentSenderRequest.Builder(sender).build())
+                } catch (_: Throwable) {
+                    scannerLaunched = false
+                    settingsManager.lastCaptureMode = CaptureMode.CAMERA
+                }
+            },
+            onFailure = {
+                scannerLaunched = false
+                settingsManager.lastCaptureMode = CaptureMode.CAMERA
+            }
+        )
+    }
+
     LaunchedEffect(Unit) {
+        if (hasCameraPermission &&
+            CaptureMode.shouldAutoOpenScanner(settingsManager.lastCaptureMode, scannerSupported, scannerHandled)
+        ) {
+            scannerHandled = true
+            openScanner()
+        }
         if (!hasCameraPermission) {
             permissionLauncher.launch(Manifest.permission.CAMERA)
         }
@@ -334,7 +392,8 @@ fun CameraScreen(
                 if (showTiltGuide && tiltState.isActive) {
                     LevelGuideOverlay(
                         tiltState = tiltState,
-                        gravity = gravity
+                        gravity = gravity,
+                        onTryScanner = if (scannerSupported) openScanner else null
                     )
                 }
 
@@ -448,7 +507,18 @@ fun CameraScreen(
                             }
                     )
 
-                    Spacer(modifier = Modifier.size(56.dp))
+                    if (scannerSupported) {
+                        CameraRoundButton(size = 56.dp, onClick = openScanner) {
+                            Icon(
+                                imageVector = Icons.Default.DocumentScanner,
+                                contentDescription = stringResource(R.string.scan_document),
+                                tint = Color.White,
+                                modifier = Modifier.size(24.dp)
+                            )
+                        }
+                    } else {
+                        Spacer(modifier = Modifier.size(56.dp))
+                    }
                 }
             }
         }
@@ -489,7 +559,8 @@ private fun CameraRoundButton(
 @Composable
 private fun LevelGuideOverlay(
     tiltState: TiltMonitor.TiltState,
-    gravity: TiltMonitor.Gravity
+    gravity: TiltMonitor.Gravity,
+    onTryScanner: (() -> Unit)? = null
 ) {
     val shuColor = Color(0xFFE0684C)
     val ringColor = if (tiltState.showsHint) shuColor else Color.White.copy(alpha = 0.85f)
@@ -555,8 +626,44 @@ private fun LevelGuideOverlay(
                     modifier = Modifier.padding(horizontal = 12.dp, vertical = 5.dp)
                 )
             }
+            if (onTryScanner != null) {
+                Surface(
+                    onClick = onTryScanner,
+                    shape = CircleShape,
+                    color = Color(0.14f, 0.12f, 0.11f, 0.85f),
+                    border = BorderStroke(1.dp, Color.White.copy(alpha = 0.2f))
+                ) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        modifier = Modifier.padding(horizontal = 14.dp, vertical = 8.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.DocumentScanner,
+                            contentDescription = null,
+                            tint = Color.White,
+                            modifier = Modifier.size(16.dp)
+                        )
+                        Spacer(modifier = Modifier.width(6.dp))
+                        Text(
+                            text = stringResource(R.string.tilt_try_scanner),
+                            color = Color.White,
+                            fontSize = 12.sp,
+                            fontWeight = FontWeight.SemiBold
+                        )
+                    }
+                }
+            }
         }
     }
+}
+
+private fun android.content.Context.findActivity(): android.app.Activity? {
+    var c: android.content.Context? = this
+    while (c is android.content.ContextWrapper) {
+        if (c is android.app.Activity) return c
+        c = c.baseContext
+    }
+    return null
 }
 
 @Composable

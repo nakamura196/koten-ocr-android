@@ -86,6 +86,8 @@
     <string name="camera_capture_failed">Capture failed. Please try again.</string>
     <string name="camera_frame_hint">Fit the whole page inside the frame</string>
     <string name="coach_shutter">Tap here to take the photo</string>
+    <string name="scan_document">Scan document</string>
+    <string name="tilt_try_scanner">You can also use the document scanner</string>
     <string name="tilt_hint">Hold the phone parallel to the page</string>
     <string name="flash_on">Flash On</string>
     <string name="flash_off">Flash Off</string>

@@ -142,6 +142,9 @@ dependencies {
     implementation("androidx.camera:camera-lifecycle:$cameraxVersion")
     implementation("androidx.camera:camera-view:$cameraxVersion")
 
+    // Document scanner (Google Play services; same page camera as iOS VisionKit)
+    implementation("com.google.android.gms:play-services-mlkit-document-scanner:16.0.0")
+
     // Coroutines
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.9.0")
 
