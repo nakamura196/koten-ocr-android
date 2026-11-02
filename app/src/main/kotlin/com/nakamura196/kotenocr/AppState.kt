@@ -107,6 +107,7 @@ class AppState(
 
     private var previousScreenBeforeModal: Screen = Screen.HOME
     private var onboardingReplayMode: Boolean = false
+    val isReplayingOnboarding: Boolean get() = onboardingReplayMode
 
     init {
         // Android 13+ restores the per-app language on its own; re-applying here would
@@ -155,6 +156,13 @@ class AppState(
         } else {
             _screen.value = Screen.HOME
         }
+    }
+
+    /** System back on the first onboarding page while replaying from Settings. */
+    fun cancelOnboardingReplay() {
+        if (!onboardingReplayMode) return
+        onboardingReplayMode = false
+        _screen.value = Screen.SETTINGS
     }
 
     fun replayOnboarding() {

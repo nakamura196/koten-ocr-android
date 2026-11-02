@@ -91,10 +91,8 @@ fun SettingsScreen(
     var autoDeskew by remember { mutableStateOf(settingsManager.autoDeskew) }
     var tipsReset by remember { mutableStateOf(false) }
 
-    val hasCameraPermission = remember {
-        ContextCompat.checkSelfPermission(context, Manifest.permission.CAMERA) ==
-            PackageManager.PERMISSION_GRANTED
-    }
+    // Re-read on resume so coming back from the system Settings app updates the row.
+    val hasCameraPermission by rememberCameraPermissionState()
 
     val appVersion = remember {
         try {

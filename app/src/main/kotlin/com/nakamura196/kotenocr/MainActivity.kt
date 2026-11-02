@@ -131,7 +131,10 @@ private fun KotenOCRApp(appState: AppState) {
 
         Screen.ONBOARDING -> {
             OnboardingScreen(
-                onComplete = { appState.completeOnboarding() }
+                onComplete = { appState.completeOnboarding() },
+                onCancel = if (appState.isReplayingOnboarding) {
+                    { appState.cancelOnboardingReplay() }
+                } else null
             )
         }
 
