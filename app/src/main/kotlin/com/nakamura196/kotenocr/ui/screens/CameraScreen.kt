@@ -12,7 +12,9 @@ import android.provider.Settings
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.PickVisualMediaRequest
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.camera.core.Camera
 import androidx.camera.core.CameraSelector
+import androidx.camera.core.FocusMeteringAction
 import androidx.camera.core.ImageCapture
 import androidx.camera.core.ImageCaptureException
 import androidx.camera.core.Preview
@@ -23,6 +25,12 @@ import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.tween
+import androidx.compose.foundation.gestures.awaitEachGesture
+import androidx.compose.foundation.gestures.awaitFirstDown
+import androidx.compose.foundation.gestures.calculateZoom
+import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -65,6 +73,13 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.input.pointer.PointerEventPass
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.layout.boundsInRoot
+import androidx.compose.ui.layout.onGloballyPositioned
+import androidx.compose.ui.draw.alpha
+import androidx.compose.ui.draw.scale
+import kotlinx.coroutines.delay
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
@@ -118,7 +133,17 @@ fun CameraScreen(
                 PackageManager.PERMISSION_GRANTED
         )
     }
+    // Torch (stays lit until tapped again), like iOS. Not a one-shot flash.
     var flashEnabled by remember { mutableStateOf(false) }
+    var camera by remember { mutableStateOf<Camera?>(null) }
+    val hasTorch = camera?.cameraInfo?.hasFlashUnit() == true
+    // Tap-to-focus indicator and pinch-zoom label
+    var focusPoint by remember { mutableStateOf<Offset?>(null) }
+    var focusToken by remember { mutableStateOf(0) }
+    var zoomText by remember { mutableStateOf<String?>(null) }
+    var pinching by remember { mutableStateOf(false) }
+    var zoomHideToken by remember { mutableStateOf(0) }
+    val buttonAreas = remember { mutableMapOf<String, CameraControls.Area>() }
     var isCapturing by remember { mutableStateOf(false) }
     var showCaptureFailedAlert by remember { mutableStateOf(false) }
     var showShutterCoach by remember {
@@ -127,6 +152,7 @@ fun CameraScreen(
 
     val imageCapture = remember {
         ImageCapture.Builder()
+            .setFlashMode(ImageCapture.FLASH_MODE_OFF)
             .setCaptureMode(ImageCapture.CAPTURE_MODE_MINIMIZE_LATENCY)
             .build()
     }
@@ -225,7 +251,7 @@ fun CameraScreen(
                 }
                 try {
                     cameraProvider.unbindAll()
-                    cameraProvider.bindToLifecycle(
+                    camera = cameraProvider.bindToLifecycle(
                         lifecycleOwner,
                         CameraSelector.DEFAULT_BACK_CAMERA,
                         preview,
@@ -237,6 +263,11 @@ fun CameraScreen(
 
             onDispose {
                 try {
+                    camera?.cameraControl?.enableTorch(false)
+                } catch (_: Exception) {
+                }
+                camera = null
+                try {
                     val cameraProvider = cameraProviderFuture.get()
                     cameraProvider.unbindAll()
                 } catch (_: Exception) {
@@ -244,10 +275,101 @@ fun CameraScreen(
             }
         }
 
+        // Light on/off follows the button; reapplied after the camera is (re)bound.
+        LaunchedEffect(camera, flashEnabled) {
+            val c = camera ?: return@LaunchedEffect
+            if (c.cameraInfo.hasFlashUnit()) {
+                try {
+                    c.cameraControl.enableTorch(flashEnabled)
+                } catch (_: Exception) {
+                }
+            }
+        }
+
+        // Hide the zoom label 1.5 s after the fingers lift
+        LaunchedEffect(zoomHideToken) {
+            if (zoomHideToken > 0) {
+                delay(CameraControls.ZOOM_LABEL_HIDE_DELAY_MS)
+                if (!pinching) zoomText = null
+            }
+        }
+
         AndroidView(
             factory = { previewView },
-            modifier = Modifier.fillMaxSize()
+            modifier = Modifier
+                .fillMaxSize()
+                // Tap to focus / expose (taps on buttons are already consumed by the buttons)
+                .pointerInput(camera) {
+                    detectTapGestures { pos ->
+                        val c = camera ?: return@detectTapGestures
+                        if (CameraControls.isOnButton(pos.x, pos.y, buttonAreas.values)) return@detectTapGestures
+                        try {
+                            val point = previewView.meteringPointFactory.createPoint(pos.x, pos.y)
+                            c.cameraControl.startFocusAndMetering(
+                                FocusMeteringAction.Builder(
+                                    point,
+                                    FocusMeteringAction.FLAG_AF or FocusMeteringAction.FLAG_AE
+                                ).build()
+                            )
+                        } catch (_: Exception) {
+                        }
+                        focusPoint = pos
+                        focusToken++
+                    }
+                }
+                // Pinch to zoom: start ratio x pinch amount, 1x .. min(device max, 10x)
+                .pointerInput(camera) {
+                    awaitEachGesture {
+                        awaitFirstDown(requireUnconsumed = false)
+                        val c = camera
+                        val zoomState = c?.cameraInfo?.zoomState?.value
+                        val startRatio = zoomState?.zoomRatio ?: 1f
+                        val deviceMax = zoomState?.maxZoomRatio ?: 1f
+                        var scale = 1f
+                        var started = false
+                        do {
+                            val event = awaitPointerEvent(PointerEventPass.Main)
+                            if (c != null && event.changes.count { it.pressed } >= 2) {
+                                scale *= event.calculateZoom()
+                                val ratio = CameraControls.targetZoom(startRatio, scale, deviceMax)
+                                c.cameraControl.setZoomRatio(ratio)
+                                zoomText = CameraControls.zoomLabel(ratio)
+                                if (!started) {
+                                    started = true
+                                    pinching = true
+                                }
+                                event.changes.forEach { it.consume() }
+                            }
+                        } while (event.changes.any { it.pressed })
+                        if (started) {
+                            pinching = false
+                            zoomHideToken++
+                        }
+                    }
+                }
         )
+
+        FocusIndicator(point = focusPoint, token = focusToken)
+
+        zoomText?.let { text ->
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .statusBarsPadding()
+                    .padding(top = 70.dp),
+                contentAlignment = Alignment.TopCenter
+            ) {
+                Surface(shape = CircleShape, color = Color.Black.copy(alpha = 0.55f)) {
+                    Text(
+                        text = text,
+                        color = Color.White,
+                        fontSize = 16.sp,
+                        fontWeight = FontWeight.Bold,
+                        modifier = Modifier.padding(horizontal = 14.dp, vertical = 6.dp)
+                    )
+                }
+            }
+        }
 
         // Vermilion corner guide frame
         ScanCorners(
@@ -284,26 +406,27 @@ fun CameraScreen(
                 Spacer(modifier = Modifier.weight(1f))
 
                 Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                    CameraRoundButton(
-                        onClick = {
-                            flashEnabled = !flashEnabled
-                            imageCapture.flashMode = if (flashEnabled) {
-                                ImageCapture.FLASH_MODE_ON
-                            } else {
-                                ImageCapture.FLASH_MODE_OFF
+                    if (hasTorch) {
+                        CameraRoundButton(
+                            onClick = { flashEnabled = !flashEnabled },
+                            modifier = Modifier.onGloballyPositioned {
+                                val r = it.boundsInRoot()
+                                buttonAreas["light"] = CameraControls.Area(r.left, r.top, r.right, r.bottom)
                             }
+                        ) {
+                            Icon(
+                                imageVector = if (flashEnabled) Icons.Default.FlashOn else Icons.Default.FlashOff,
+                                contentDescription = if (flashEnabled) {
+                                    stringResource(R.string.flash_on)
+                                } else {
+                                    stringResource(R.string.flash_off)
+                                },
+                                tint = if (flashEnabled) Color(0xFFFFD54F) else Color.White,
+                                modifier = Modifier.size(20.dp)
+                            )
                         }
-                    ) {
-                        Icon(
-                            imageVector = if (flashEnabled) Icons.Default.FlashOn else Icons.Default.FlashOff,
-                            contentDescription = if (flashEnabled) {
-                                stringResource(R.string.flash_on)
-                            } else {
-                                stringResource(R.string.flash_off)
-                            },
-                            tint = if (flashEnabled) Color(0xFFFFD54F) else Color.White,
-                            modifier = Modifier.size(20.dp)
-                        )
+                    } else {
+                        buttonAreas.remove("light")
                     }
 
                     CameraRoundButton(onClick = onHistoryClick) {
@@ -396,6 +519,10 @@ fun CameraScreen(
                     // Vermilion shutter button
                     Box(
                         modifier = Modifier
+                            .onGloballyPositioned {
+                                val r = it.boundsInRoot()
+                                buttonAreas["shutter"] = CameraControls.Area(r.left, r.top, r.right, r.bottom)
+                            }
                             .size(76.dp)
                             .border(3.5.dp, Color.White, CircleShape)
                             .padding(6.dp)
@@ -470,12 +597,13 @@ fun CameraScreen(
 @Composable
 private fun CameraRoundButton(
     size: androidx.compose.ui.unit.Dp = 44.dp,
+    modifier: Modifier = Modifier,
     onClick: () -> Unit,
     content: @Composable () -> Unit
 ) {
     Surface(
         onClick = onClick,
-        modifier = Modifier.size(size),
+        modifier = modifier.size(size),
         shape = CircleShape,
         color = Color(0.14f, 0.12f, 0.11f, 0.85f),
         border = BorderStroke(1.dp, Color.White.copy(alpha = 0.2f))
@@ -484,6 +612,33 @@ private fun CameraRoundButton(
             content()
         }
     }
+}
+
+/** Square frame drawn where the user tapped: starts 1.3x, shrinks to 1x, stays about a second, fades. */
+@Composable
+private fun FocusIndicator(point: Offset?, token: Int) {
+    if (point == null || token == 0) return
+    val scale = remember(token) { Animatable(CameraControls.FOCUS_START_SCALE) }
+    val alpha = remember(token) { Animatable(1f) }
+    LaunchedEffect(token) {
+        scale.animateTo(1f, tween(CameraControls.FOCUS_SHRINK_MS))
+        delay(CameraControls.FOCUS_HOLD_MS)
+        alpha.animateTo(0f, tween(CameraControls.FOCUS_FADE_MS))
+    }
+    val half = 40.dp
+    Box(
+        modifier = Modifier
+            .offset {
+                IntOffset(
+                    (point.x - half.toPx()).roundToInt(),
+                    (point.y - half.toPx()).roundToInt()
+                )
+            }
+            .size(half * 2)
+            .scale(scale.value)
+            .alpha(alpha.value)
+            .border(1.5.dp, Color(0xFFFFD54F))
+    )
 }
 
 @Composable
