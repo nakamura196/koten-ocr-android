@@ -7,14 +7,6 @@ plugins {
     id("org.jetbrains.kotlin.plugin.compose")
 }
 
-// Read API key from local.properties: OPENROUTER_API_KEY=sk-...
-val localProps = Properties()
-val localPropsFile = rootProject.file("local.properties")
-if (localPropsFile.exists()) {
-    localProps.load(FileInputStream(localPropsFile))
-}
-val openrouterKey: String = localProps.getProperty("OPENROUTER_API_KEY", "")
-
 // Signing for the directly distributed APK ("direct" build). Reads the existing upload-key
 // properties (storeFile / storePassword / keyAlias / keyPassword) without copying them here.
 // Override the location with -PkeyProperties=/path/to/key.properties.
@@ -55,10 +47,8 @@ android {
         debug {
             applicationIdSuffix = ".debug"
             resValue("string", "app_name", "Dev Native KotenOCR")
-            buildConfigField("String", "OPENROUTER_API_KEY", "\"$openrouterKey\"")
         }
         release {
-            buildConfigField("String", "OPENROUTER_API_KEY", "\"\"")
             isMinifyEnabled = true
             isShrinkResources = true
             // Play AAB is signed with the upload key; Play re-signs with the app signing key.
@@ -150,9 +140,6 @@ dependencies {
 
     // DataStore (settings)
     implementation("androidx.datastore:datastore-preferences:1.1.1")
-
-    // Security (API key storage)
-    implementation("androidx.security:security-crypto:1.1.0-alpha06")
 
     // Image loading
     implementation("io.coil-kt:coil-compose:2.7.0")

@@ -170,9 +170,16 @@ class SettingsManager(context: Context) {
             }
         }
 
+    // Encrypted with the Android Keystore and kept out of backups (see SecretStore).
+    private val secrets: SecretStore by lazy {
+        SecretStore.create(appContext).also {
+            it.migrateLegacy(KEY_API_KEY, SharedPrefsAdapter(prefs), KEY_API_KEY)
+        }
+    }
+
     var apiKey: String
-        get() = prefs.getString(KEY_API_KEY, "") ?: ""
-        set(value) = prefs.edit().putString(KEY_API_KEY, value).apply()
+        get() = secrets.get(KEY_API_KEY)
+        set(value) = secrets.set(KEY_API_KEY, value)
 
     var apiEndpoint: String
         get() = prefs.getString(KEY_API_ENDPOINT, DEFAULT_ENDPOINT) ?: DEFAULT_ENDPOINT
