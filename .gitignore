@@ -25,3 +25,11 @@ build/
 
 # Kotlin compiler session files
 .kotlin/
+
+# more secrets / credentials
+*.pem
+*.p12
+*.pfx
+credentials*.json
+service-account*.json
+google-services.json
