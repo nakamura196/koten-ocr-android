@@ -1,0 +1,237 @@
+<resources>
+    <string name="app_name">KotenOCR</string>
+
+    <!-- Onboarding -->
+    <string name="onboarding_heading">くずし字を、\nその場で読む</string>
+    <string name="onboarding_intro">古典籍・くずし字の文字認識アプリ。\nカメラで撮影するか、写真を選ぶだけで、くずし字をテキストに変換します。</string>
+    <string name="onboarding_camera_title">カメラへのアクセス</string>
+    <string name="onboarding_camera_description">古典籍の文字を認識するために、\nカメラへのアクセスを許可してください。</string>
+    <string name="onboarding_allow_camera">カメラを許可する</string>
+    <string name="onboarding_camera_granted">カメラは許可済みです</string>
+    <string name="onboarding_camera_denied">カメラが許可されていません</string>
+    <string name="onboarding_howto_title">使い方</string>
+    <string name="onboarding_step1_title">撮影する</string>
+    <string name="onboarding_step1_desc">古典籍のページをカメラで撮影（パソコンなどから「写真」に入れた画像も選べます）</string>
+    <string name="onboarding_step2_title">認識する</string>
+    <string name="onboarding_step2_desc">AIが自動でくずし字を認識</string>
+    <string name="onboarding_step3_title">コピーする</string>
+    <string name="onboarding_step3_desc">認識結果をテキストとしてコピー</string>
+    <string name="onboarding_next">次へ</string>
+    <string name="onboarding_start">はじめる</string>
+    <string name="onboarding_sample_credit">『源氏物語』（東京大学総合図書館所蔵）を改変</string>
+
+    <!-- Brand & Home -->
+    <string name="brand_tagline">くずし字を、その場で読む</string>
+    <string name="app_tagline">くずし字をAIで読み取る</string>
+    <string name="home_button">ホーム</string>
+    <string name="home_take_photo">撮影する</string>
+    <string name="home_take_photo_sub">本や文書をカメラで撮る</string>
+    <string name="home_choose_photo">写真から選ぶ</string>
+    <string name="home_how_to">撮影 → 範囲を選ぶ → 文字を読み取り</string>
+    <string name="home_recent">最近の読み取り</string>
+    <string name="home_try_sample">サンプルの頁で試す</string>
+    <string name="lines_count_format">%1$d 行</string>
+
+    <!-- Sample pages -->
+    <string name="sample_sheet_title">サンプルで試す</string>
+    <string name="sample_sheet_lead">選ぶとすぐに読み取ります。結果は履歴にも残ります。</string>
+    <string name="sample_taketori_title">竹取物語</string>
+    <string name="sample_genji_title">源氏物語　桐壺</string>
+    <string name="sample_kikuchi_title">菊池武光 施行状（古文書）</string>
+    <string name="sample_kikuchi_credit">『古文書時代鑑』（国立国会図書館デジタルコレクション）</string>
+    <string name="sample_shibata_title">柴田太郎吉 明細書（斜めに撮った写真）</string>
+    <string name="sample_shibata_credit">写真: 柴田バネッサ（CC BY-SA 4.0）</string>
+    <string name="sample_modern_title">国立国会図書館スタッフ・マニュアル</string>
+    <string name="sample_ndl_credit">国立国会図書館デジタルコレクション</string>
+    <string name="settings_sample_image_title">初回説明の写本画像</string>
+    <string name="settings_sample_pages_title">サンプルの頁</string>
+    <string name="settings_sample_pages_credit">『竹取物語』・『国立国会図書館スタッフ・マニュアル』（国立国会図書館デジタルコレクション）、『源氏物語』（東京大学総合図書館所蔵）を改変。菊池武光 施行状: 『古文書時代鑑』（国立国会図書館デジタルコレクション）。柴田太郎吉 明細書: 写真 柴田バネッサ、CC BY-SA 4.0（https://creativecommons.org/licenses/by-sa/4.0/）、Wikimedia Commons より</string>
+
+    <!-- Settings -->
+    <string name="settings_title">設定</string>
+    <string name="settings_about">このアプリについて</string>
+    <string name="settings_version">バージョン</string>
+    <string name="settings_licenses">ライセンス</string>
+    <string name="settings_links">リンク</string>
+    <string name="settings_privacy_policy">プライバシーポリシー</string>
+    <string name="settings_theme">外観</string>
+    <string name="theme_system">システム</string>
+    <string name="theme_light">ライト</string>
+    <string name="theme_dark">ダーク</string>
+    <string name="settings_language">言語</string>
+    <string name="language_system">システム</string>
+    <string name="language_ja">日本語</string>
+    <string name="language_en">English</string>
+    <string name="language_restart_message">言語の変更を適用するにはアプリを再起動してください。</string>
+    <string name="language_restart_title">再起動が必要</string>
+    <string name="settings_camera">カメラ</string>
+    <string name="settings_camera_permission">カメラの許可</string>
+    <string name="camera_status_authorized">許可済み</string>
+    <string name="camera_status_denied">許可されていません</string>
+    <string name="camera_status_not_set">未設定</string>
+    <string name="camera_open_settings">設定を開く</string>
+    <string name="settings_save_to_library">フォトライブラリに保存</string>
+    <string name="settings_show_tilt_guide">傾きの案内を表示</string>
+    <string name="settings_auto_deskew">傾きを自動補正</string>
+    <string name="settings_show_onboarding">使い方をもう一度見る</string>
+    <string name="settings_show_tips_again">操作のヒントをもう一度表示</string>
+    <string name="settings_tips_footer">撮影ボタンと範囲の角に、初回だけ出る吹き出しをもう一度表示します。</string>
+    <string name="ok">OK</string>
+
+    <!-- Camera -->
+    <string name="camera_no_camera">カメラが利用できません\n写真ピッカーから画像を選択してください</string>
+    <string name="camera_unavailable_title">カメラが使えません</string>
+    <string name="camera_unavailable_body">「設定」アプリで、KotenOCR の「カメラ」をオンにしてください。撮った画像は端末の外に出ません。</string>
+    <string name="camera_permission_denied">カメラが許可されていません。設定アプリでカメラへのアクセスを許可してください。写真ライブラリから画像を選ぶこともできます。</string>
+    <string name="camera_capture_failed">撮影に失敗しました。もう一度お試しください。</string>
+    <string name="camera_frame_hint">ページ全体を枠に入れてください</string>
+    <string name="coach_shutter">ここを押して撮影</string>
+    <string name="tilt_hint">資料と平行に構えてください</string>
+    <string name="flash_on">フラッシュ オン</string>
+    <string name="flash_off">フラッシュ オフ</string>
+    <string name="capture_button">撮影</string>
+    <string name="gallery_button">フォトライブラリ</string>
+    <string name="settings_button">設定</string>
+
+    <!-- Processing / Scanning -->
+    <string name="loading_models">OCRモデルを読み込み中…</string>
+    <string name="recognizing_text">テキストを認識中…</string>
+    <string name="reading_in_progress">読み取り中…</string>
+    <string name="scan_title">読み取り中</string>
+    <string name="scan_preparing">準備しています…</string>
+    <string name="scan_finding_lines">行を探しています…</string>
+    <string name="scan_reading_text">文字を読んでいます…</string>
+    <string name="scan_done_format">%1$d 行を読み取りました</string>
+    <string name="ocr_finished_announcement">読み取りが完了しました</string>
+    <string name="cancel">キャンセル</string>
+    <string name="init_error">初期化エラー</string>
+    <string name="ocr_error_model">文字認識の準備に失敗しました。アプリを再起動してもう一度お試しください。</string>
+    <string name="ocr_error_generic">文字を読み取れませんでした。画像を撮り直してもう一度お試しください。</string>
+    <string name="ocr_error_retake">撮り直す</string>
+
+    <!-- Result -->
+    <string name="back">戻る</string>
+    <string name="boxes_toggle">枠</string>
+    <string name="regions_count">%1$d 領域</string>
+    <string name="copy">コピー</string>
+    <string name="copied">コピー済み</string>
+    <string name="copied_toast">コピーしました</string>
+    <string name="share">共有</string>
+    <string name="share_text">テキストを共有</string>
+    <string name="export_txt">TXTで書き出す</string>
+    <string name="export_pdf">PDFで書き出す</string>
+    <string name="edit_text">テキスト編集</string>
+    <string name="edit_detection_title">テキストを編集</string>
+    <string name="edit_save">保存</string>
+    <string name="edit_cancel">キャンセル</string>
+    <string name="no_lines_title">文字が見つかりませんでした</string>
+    <string name="no_lines_tip_page">ページ全体が入るように撮る</string>
+    <string name="no_lines_tip_light">明るい場所で、影を避ける</string>
+    <string name="no_lines_tip_modern">活字なら「近代」を選ぶ</string>
+
+    <!-- Confidence Filter -->
+    <string name="confidence_label">確信度</string>
+    <string name="confidence_hint">上げると自信のない枠から隠れます。表示だけの変更です</string>
+    <string name="confidence_hint_hidden">上げると自信のない枠から隠れます。いま %1$d 行を隠しています</string>
+
+    <!-- Box Editor -->
+    <string name="box_edit_enter">枠を直す</string>
+    <string name="box_edit_done">完了</string>
+    <string name="box_edit_undo">元に戻す</string>
+    <string name="box_edit_delete">枠を削除</string>
+    <string name="box_edit_reread">再認識</string>
+    <string name="box_edit_pending">再認識が必要</string>
+    <string name="box_edit_area">枠の編集エリア</string>
+    <string name="box_tool_select">選ぶ</string>
+    <string name="box_tool_add">追加</string>
+    <string name="box_tool_split">分割</string>
+    <string name="box_tool_merge">結合</string>
+    <string name="box_hint_select">枠をタップして選び、ドラッグで動かす。角で大きさを変える</string>
+    <string name="box_hint_add">画像をなぞって、新しい枠を描く</string>
+    <string name="box_hint_split">分けたい位置をタップ</string>
+    <string name="box_hint_merge">1つ選んでから、つなげる枠をタップ</string>
+
+    <!-- History -->
+    <string name="history_title">履歴</string>
+    <string name="history_button">履歴</string>
+    <string name="history_empty">スキャン履歴はまだありません</string>
+    <string name="history_empty_title">まだ記録はありません</string>
+    <string name="history_empty_body">読み取った資料はここに残ります。</string>
+    <string name="history_delete_all">すべて削除</string>
+    <string name="history_delete_item">この履歴を削除</string>
+    <string name="history_delete_item_title">この履歴を削除しますか？</string>
+    <string name="history_regions">領域</string>
+    <string name="history_item_label">スキャン結果</string>
+    <string name="history_delete_all_title">すべての履歴を削除</string>
+    <string name="history_delete_all_message">すべてのスキャン履歴を削除しますか？この操作は元に戻せません。</string>
+    <string name="history_translated_badge">翻訳済</string>
+    <string name="close">閉じる</string>
+
+    <!-- Feedback -->
+    <string name="settings_feedback">フィードバック</string>
+    <string name="settings_send_feedback">フィードバックを送る</string>
+
+    <!-- Translation -->
+    <string name="settings_translation_api">現代語訳 API</string>
+    <string name="settings_translation_nav">現代語訳設定</string>
+    <string name="settings_translation_options">翻訳オプション</string>
+    <string name="settings_api_config">API設定</string>
+    <string name="settings_api_provider">APIプロバイダー</string>
+    <string name="provider_custom">カスタム</string>
+    <string name="settings_target_language">翻訳先言語</string>
+    <string name="target_lang_ja">日本語（現代語）</string>
+    <string name="target_lang_en">English</string>
+    <string name="settings_translation_level">解説レベル</string>
+    <string name="level_general">一般向け</string>
+    <string name="level_student">学生向け</string>
+    <string name="level_researcher">研究者向け</string>
+    <string name="level_general_desc">わかりやすい現代語訳と簡単な解説</string>
+    <string name="level_student_desc">正確な訳と語注・文法解説</string>
+    <string name="level_researcher_desc">原文に忠実な直訳と詳細な注釈</string>
+    <string name="settings_api_key">APIキー</string>
+    <string name="settings_api_endpoint">エンドポイント</string>
+    <string name="settings_api_model">モデル</string>
+    <string name="settings_api_save">保存</string>
+    <string name="settings_api_footer">OpenAI互換APIに対応（OpenAI、OpenRouter等）。APIキーはこの端末内にのみ保存されます。</string>
+    <string name="api_key_saved_title">保存しました</string>
+    <string name="translate_button">現代語訳</string>
+    <string name="retranslate_button">再翻訳</string>
+    <string name="translation_title">現代語訳</string>
+    <string name="translating">翻訳中…</string>
+    <string name="translation_error_no_key">APIキーが設定されていません</string>
+    <string name="translation_error_too_long">テキストが長すぎます</string>
+    <string name="translation_error_server">サーバーエラー</string>
+    <string name="translation_error_invalid">応答の解析に失敗しました</string>
+    <string name="translation_no_key_title">APIキーが必要です</string>
+    <string name="translation_no_key_message">設定画面でOpenAI互換APIキーを登録してください。</string>
+    <string name="translation_open_settings">設定を開く</string>
+    <string name="translation_empty">現代語訳がまだありません</string>
+    <string name="tab_ocr">OCR結果</string>
+    <string name="tab_translation">現代語訳</string>
+
+    <!-- Crop -->
+    <string name="crop_title">範囲を選ぶ</string>
+    <string name="crop_apply">切り取り</string>
+    <string name="crop_skip">スキップ</string>
+    <string name="crop_rotate">回転</string>
+    <string name="crop_reset_zoom">拡大をリセット</string>
+    <string name="crop_mode_rect">矩形</string>
+    <string name="crop_mode_quad">4点補正</string>
+    <string name="crop_auto_correct">自動補正</string>
+    <string name="crop_undo_correct">元に戻す</string>
+    <string name="coach_crop_corner">角を動かして\n範囲を選ぶ</string>
+    <string name="crop_tip">四隅の朱の点を動かして、読みたい所を囲みます</string>
+    <string name="confirm_crop_title">確認</string>
+    <string name="retrim">再切り取り</string>
+    <string name="run_ocr">読み取る</string>
+
+    <!-- OCR Mode -->
+    <string name="settings_ocr_engine">OCRエンジン</string>
+    <string name="ocr_mode_picker">読み取りの種類</string>
+    <string name="ocr_mode_koten">古典籍</string>
+    <string name="ocr_mode_ndl">近代</string>
+    <string name="ocr_mode_koten_short">くずし字</string>
+    <string name="ocr_mode_ndl_short">活字・手書き</string>
+    <string name="run_ocr_koten">古典籍 OCR</string>
+    <string name="run_ocr_ndl">近代 OCR</string>
+</resources>

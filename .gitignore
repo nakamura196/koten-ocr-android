@@ -1,0 +1,24 @@
+*.iml
+.gradle
+/local.properties
+/.idea
+.DS_Store
+/build
+/captures
+.externalNativeBuild
+.cxx
+local.properties
+
+# ONNX models (downloaded via setup.sh)
+app/src/main/assets/models/*.onnx
+app/src/main/assets/models/*.yaml
+
+# signing material (never commit)
+*.jks
+*.keystore
+key.properties
+keystore.properties
+.env*
+
+# build outputs in any module (debug BuildConfig embeds the OpenRouter key)
+build/

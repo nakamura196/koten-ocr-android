@@ -1,0 +1,237 @@
+<resources>
+    <string name="app_name">KotenOCR</string>
+
+    <!-- Onboarding -->
+    <string name="onboarding_heading">Read kuzushiji,\nright where you are</string>
+    <string name="onboarding_intro">OCR app for classical Japanese texts.\nTake a photo, or pick one from Photos, to convert kuzushiji to text.</string>
+    <string name="onboarding_camera_title">Camera Access</string>
+    <string name="onboarding_camera_description">Please allow camera access\nto recognize characters in classical texts.</string>
+    <string name="onboarding_allow_camera">Allow Camera</string>
+    <string name="onboarding_camera_granted">Camera access is authorized</string>
+    <string name="onboarding_camera_denied">Camera access is not authorized</string>
+    <string name="onboarding_howto_title">How to Use</string>
+    <string name="onboarding_step1_title">Capture</string>
+    <string name="onboarding_step1_desc">Take a photo of a classical text page (or choose an image saved to Photos, e.g. from a computer)</string>
+    <string name="onboarding_step2_title">Recognize</string>
+    <string name="onboarding_step2_desc">AI automatically recognizes kuzushiji</string>
+    <string name="onboarding_step3_title">Copy</string>
+    <string name="onboarding_step3_desc">Copy recognized text to clipboard</string>
+    <string name="onboarding_next">Next</string>
+    <string name="onboarding_start">Get Started</string>
+    <string name="onboarding_sample_credit">Image courtesy of the University of Tokyo General Library - The Tale of Genji / transformed</string>
+
+    <!-- Brand & Home -->
+    <string name="brand_tagline">Read kuzushiji, right where you are</string>
+    <string name="app_tagline">AI-powered classical text recognition</string>
+    <string name="home_button">Home</string>
+    <string name="home_take_photo">Take Photo</string>
+    <string name="home_take_photo_sub">Photograph a book or document</string>
+    <string name="home_choose_photo">Choose from Photos</string>
+    <string name="home_how_to">Capture → Select area → Read text</string>
+    <string name="home_recent">Recent scans</string>
+    <string name="home_try_sample">Try a sample page</string>
+    <string name="lines_count_format">%1$d lines</string>
+
+    <!-- Sample pages -->
+    <string name="sample_sheet_title">Try a Sample</string>
+    <string name="sample_sheet_lead">Choose a page to read it right away. The result is also saved to History.</string>
+    <string name="sample_taketori_title">The Tale of the Bamboo Cutter</string>
+    <string name="sample_genji_title">The Tale of Genji: Kiritsubo</string>
+    <string name="sample_kikuchi_title">Order by Kikuchi Takemitsu (old document)</string>
+    <string name="sample_kikuchi_credit">Komonjo Jidai Kagami (NDL Digital Collections)</string>
+    <string name="sample_shibata_title">Statement by Shibata Tarōkichi (photo taken at an angle)</string>
+    <string name="sample_shibata_credit">Photo: Shibata Vanessa (CC BY-SA 4.0)</string>
+    <string name="sample_modern_title">NDL Staff Manual (1963)</string>
+    <string name="sample_ndl_credit">National Diet Library Digital Collections</string>
+    <string name="settings_sample_image_title">Manuscript in the introduction</string>
+    <string name="settings_sample_pages_title">Sample pages</string>
+    <string name="settings_sample_pages_credit">Taketori Monogatari and the NDL Staff Manual: National Diet Library Digital Collections. The Tale of Genji: image courtesy of the University of Tokyo General Library / transformed. Order by Kikuchi Takemitsu: Komonjo Jidai Kagami (National Diet Library Digital Collections). Statement by Shibata Tarōkichi: photo by Shibata Vanessa, CC BY-SA 4.0 (https://creativecommons.org/licenses/by-sa/4.0/), via Wikimedia Commons</string>
+
+    <!-- Settings -->
+    <string name="settings_title">Settings</string>
+    <string name="settings_about">About</string>
+    <string name="settings_version">Version</string>
+    <string name="settings_licenses">Licenses</string>
+    <string name="settings_links">Links</string>
+    <string name="settings_privacy_policy">Privacy Policy</string>
+    <string name="settings_theme">Appearance</string>
+    <string name="theme_system">System</string>
+    <string name="theme_light">Light</string>
+    <string name="theme_dark">Dark</string>
+    <string name="settings_language">Language</string>
+    <string name="language_system">System</string>
+    <string name="language_ja">Japanese</string>
+    <string name="language_en">English</string>
+    <string name="language_restart_message">Please restart the app to apply the language change.</string>
+    <string name="language_restart_title">Restart Required</string>
+    <string name="settings_camera">Camera</string>
+    <string name="settings_camera_permission">Camera Permission</string>
+    <string name="camera_status_authorized">Authorized</string>
+    <string name="camera_status_denied">Not Authorized</string>
+    <string name="camera_status_not_set">Not Set</string>
+    <string name="camera_open_settings">Open Settings</string>
+    <string name="settings_save_to_library">Save to Photo Library</string>
+    <string name="settings_show_tilt_guide">Show tilt guide</string>
+    <string name="settings_auto_deskew">Auto-correct tilt</string>
+    <string name="settings_show_onboarding">View Introduction Again</string>
+    <string name="settings_show_tips_again">Show Tips Again</string>
+    <string name="settings_tips_footer">Shows the one-time hints on the shutter button and the crop corner again.</string>
+    <string name="ok">OK</string>
+
+    <!-- Camera -->
+    <string name="camera_no_camera">Camera not available\nUse the photo picker to select an image</string>
+    <string name="camera_unavailable_title">Camera unavailable</string>
+    <string name="camera_unavailable_body">Turn on Camera for KotenOCR in the Settings app. Your photos never leave this device.</string>
+    <string name="camera_permission_denied">Camera access is not allowed. Please allow camera access in Settings. You can also choose an image from your photo library.</string>
+    <string name="camera_capture_failed">Capture failed. Please try again.</string>
+    <string name="camera_frame_hint">Fit the whole page inside the frame</string>
+    <string name="coach_shutter">Tap here to take the photo</string>
+    <string name="tilt_hint">Hold the phone parallel to the page</string>
+    <string name="flash_on">Flash On</string>
+    <string name="flash_off">Flash Off</string>
+    <string name="capture_button">Take Photo</string>
+    <string name="gallery_button">Photo Library</string>
+    <string name="settings_button">Settings</string>
+
+    <!-- Processing / Scanning -->
+    <string name="loading_models">Loading OCR Models…</string>
+    <string name="recognizing_text">Recognizing text…</string>
+    <string name="reading_in_progress">Reading…</string>
+    <string name="scan_title">Reading</string>
+    <string name="scan_preparing">Preparing…</string>
+    <string name="scan_finding_lines">Finding lines…</string>
+    <string name="scan_reading_text">Reading characters…</string>
+    <string name="scan_done_format">Read %1$d lines</string>
+    <string name="ocr_finished_announcement">Reading finished</string>
+    <string name="cancel">Cancel</string>
+    <string name="init_error">Initialization Error</string>
+    <string name="ocr_error_model">Failed to prepare text recognition. Please restart the app and try again.</string>
+    <string name="ocr_error_generic">Could not read the text. Please retake the image and try again.</string>
+    <string name="ocr_error_retake">Retake</string>
+
+    <!-- Result -->
+    <string name="back">Back</string>
+    <string name="boxes_toggle">Boxes</string>
+    <string name="regions_count">%1$d regions</string>
+    <string name="copy">Copy</string>
+    <string name="copied">Copied</string>
+    <string name="copied_toast">Copied</string>
+    <string name="share">Share</string>
+    <string name="share_text">Share Text</string>
+    <string name="export_txt">Export TXT</string>
+    <string name="export_pdf">Export PDF</string>
+    <string name="edit_text">Edit Text</string>
+    <string name="edit_detection_title">Edit Text</string>
+    <string name="edit_save">Save</string>
+    <string name="edit_cancel">Cancel</string>
+    <string name="no_lines_title">No text was found</string>
+    <string name="no_lines_tip_page">Fit the whole page in the photo</string>
+    <string name="no_lines_tip_light">Use good light and avoid shadows</string>
+    <string name="no_lines_tip_modern">For printed text, choose Modern</string>
+
+    <!-- Confidence Filter -->
+    <string name="confidence_label">Confidence</string>
+    <string name="confidence_hint">Raise it to hide the boxes the app is less sure about. Display only</string>
+    <string name="confidence_hint_hidden">Raise it to hide the boxes the app is less sure about. %1$d lines hidden now</string>
+
+    <!-- Box Editor -->
+    <string name="box_edit_enter">Edit Boxes</string>
+    <string name="box_edit_done">Done</string>
+    <string name="box_edit_undo">Undo</string>
+    <string name="box_edit_delete">Delete box</string>
+    <string name="box_edit_reread">Re-read</string>
+    <string name="box_edit_pending">Needs re-reading</string>
+    <string name="box_edit_area">Box editing area</string>
+    <string name="box_tool_select">Select</string>
+    <string name="box_tool_add">Add</string>
+    <string name="box_tool_split">Split</string>
+    <string name="box_tool_merge">Merge</string>
+    <string name="box_hint_select">Tap a box to select it, drag to move, drag a corner to resize</string>
+    <string name="box_hint_add">Drag on the image to draw a new box</string>
+    <string name="box_hint_split">Tap where to cut the box</string>
+    <string name="box_hint_merge">Select one box, then tap the box to join</string>
+
+    <!-- History -->
+    <string name="history_title">History</string>
+    <string name="history_button">History</string>
+    <string name="history_empty">No scan history yet</string>
+    <string name="history_empty_title">No scans yet</string>
+    <string name="history_empty_body">Documents you read will be kept here.</string>
+    <string name="history_delete_all">Delete All</string>
+    <string name="history_delete_item">Delete this item</string>
+    <string name="history_delete_item_title">Delete this history item?</string>
+    <string name="history_regions">regions</string>
+    <string name="history_item_label">Scan result</string>
+    <string name="history_delete_all_title">Delete All History</string>
+    <string name="history_delete_all_message">Are you sure you want to delete all scan history? This cannot be undone.</string>
+    <string name="history_translated_badge">Translated</string>
+    <string name="close">Close</string>
+
+    <!-- Feedback -->
+    <string name="settings_feedback">Feedback</string>
+    <string name="settings_send_feedback">Send Feedback</string>
+
+    <!-- Translation -->
+    <string name="settings_translation_api">Translation API</string>
+    <string name="settings_translation_nav">Translation Settings</string>
+    <string name="settings_translation_options">Translation Options</string>
+    <string name="settings_api_config">API Configuration</string>
+    <string name="settings_api_provider">API Provider</string>
+    <string name="provider_custom">Custom</string>
+    <string name="settings_target_language">Target Language</string>
+    <string name="target_lang_ja">Japanese (Modern)</string>
+    <string name="target_lang_en">English</string>
+    <string name="settings_translation_level">Detail Level</string>
+    <string name="level_general">General</string>
+    <string name="level_student">Student</string>
+    <string name="level_researcher">Researcher</string>
+    <string name="level_general_desc">Easy-to-read translation with brief explanation</string>
+    <string name="level_student_desc">Accurate translation with vocabulary notes and grammar</string>
+    <string name="level_researcher_desc">Literal translation with detailed annotations</string>
+    <string name="settings_api_key">API Key</string>
+    <string name="settings_api_endpoint">Endpoint</string>
+    <string name="settings_api_model">Model</string>
+    <string name="settings_api_save">Save</string>
+    <string name="settings_api_footer">Supports OpenAI-compatible APIs (OpenAI, OpenRouter, etc.). API key is stored locally on this device only.</string>
+    <string name="api_key_saved_title">Saved</string>
+    <string name="translate_button">Modern Translation</string>
+    <string name="retranslate_button">Retranslate</string>
+    <string name="translation_title">Modern Translation</string>
+    <string name="translating">Translating…</string>
+    <string name="translation_error_no_key">API key is not configured</string>
+    <string name="translation_error_too_long">Text is too long</string>
+    <string name="translation_error_server">Server error</string>
+    <string name="translation_error_invalid">Failed to parse response</string>
+    <string name="translation_no_key_title">API Key Required</string>
+    <string name="translation_no_key_message">Please register an OpenAI-compatible API key in Settings.</string>
+    <string name="translation_open_settings">Open Settings</string>
+    <string name="translation_empty">No translation yet</string>
+    <string name="tab_ocr">OCR Result</string>
+    <string name="tab_translation">Translation</string>
+
+    <!-- Crop -->
+    <string name="crop_title">Choose Area</string>
+    <string name="crop_apply">Crop</string>
+    <string name="crop_skip">Skip</string>
+    <string name="crop_rotate">Rotate</string>
+    <string name="crop_reset_zoom">Reset zoom</string>
+    <string name="crop_mode_rect">Rectangle</string>
+    <string name="crop_mode_quad">4 corners</string>
+    <string name="crop_auto_correct">Auto-correct</string>
+    <string name="crop_undo_correct">Undo</string>
+    <string name="coach_crop_corner">Drag a corner\nto choose the area</string>
+    <string name="crop_tip">Move the red dots at the corners around the part you want to read</string>
+    <string name="confirm_crop_title">Confirm</string>
+    <string name="retrim">Re-crop</string>
+    <string name="run_ocr">Read</string>
+
+    <!-- OCR Mode -->
+    <string name="settings_ocr_engine">OCR Engine</string>
+    <string name="ocr_mode_picker">Text type</string>
+    <string name="ocr_mode_koten">Classical</string>
+    <string name="ocr_mode_ndl">Modern</string>
+    <string name="ocr_mode_koten_short">Kuzushiji</string>
+    <string name="ocr_mode_ndl_short">Printed / Handwritten</string>
+    <string name="run_ocr_koten">Classical OCR</string>
+    <string name="run_ocr_ndl">Modern OCR</string>
+</resources>
