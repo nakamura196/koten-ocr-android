@@ -354,9 +354,11 @@ object LineTilt {
     fun substringSimilarity(small: String, large: String): Double {
         if (small.isEmpty()) return 0.0
         if (large.isEmpty()) return 0.0
-        val s = small.toCharArray()
-        val l = large.toCharArray()
-        if (s.size > l.size) return substringSimilarity(large, small)
+        // Code points, not UTF-16 units, so a CJK Extension B character counts as one (iOS counts
+        // Characters). No swapping when `small` is longer: iOS compares the smaller box's text
+        // against the larger box's text as-is, so a small box that read more is kept.
+        val s = small.codePoints().toArray()
+        val l = large.codePoints().toArray()
         var prev = IntArray(l.size + 1) { 0 }
         for (i in 1..s.size) {
             val cur = IntArray(l.size + 1)

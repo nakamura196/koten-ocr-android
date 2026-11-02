@@ -31,7 +31,8 @@ class DEIMDetector(
     private val inputHeight: Int = 800,
     private val scoreThreshold: Float = 0.2f,
     private val confThreshold: Float = 0.25f,
-    private val iouThreshold: Float = 0.4f,
+    // iOS `OCREngine.loadNDLModels` passes 0.2 (lines only suppress lines).
+    private val iouThreshold: Float = 0.2f,
     private val maxDetections: Int = 1000
 ) : AutoCloseable {
 
