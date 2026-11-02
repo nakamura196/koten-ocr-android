@@ -202,5 +202,21 @@ JAVA_HOME=/opt/homebrew/opt/openjdk@17/libexec/openjdk.jdk/Contents/Home ./gradl
 - `store/make_play_graphics.py <iOS の AppIcon.png> <出力先>` で icon-512.png と feature-{ja,en}.png（1024×500）を作った。元は koten-ocr-ios の `KotenOCR/Assets.xcassets/AppIcon.appiconset/AppIcon.png`
 - Play Console のデフォルト掲載（共通のビジュアルアセット）にアイコンと feature-ja を入れ、**「未公開として保存」まで**。審査に送ると進行中の 2.1.0・テスター切替の審査がやり直しになるので、審査が通ってから「公開の概要」で送る
 - 残り: スマートフォンのスクリーンショットが Flutter 時代の古いもの（橙・青・紫）。ネイティブ版の画面を adb で撮って差し替える。英語の掲載に feature-en を当てるか確認
+- 本人の了承（2026-11-02）: 審査が通ったら、聞き直さずにそのまま「公開の概要」からアイコン・フィーチャーグラフィックを審査に送ってよい
 - 告知文の下書き: `store/tester-recruit-drafts.md`
 - 審査の状況は Play Developer API では取れない（審査状態のエンドポイントが無い）ので、Chrome で公開の概要を見る
+
+#### 2026-11-02 審査通過・掲載画像を審査へ・通知とグループ名
+- 2.1.0 とテスター切替（送信 6）は 0:45 送信 → 1:05 公開（20 分）。アイコン・フィーチャーグラフィック（送信 7）を審査に送った。AI アセットの申告は「ラベルを付けない」（本人了承）
+- 審査中に新しい変更を送ると、前の送信は「キャンセル」になり、まとめて送り直しになる（送信 5 がそうなった）
+- Play Console のメール通知「アプリの公開に関する最新情報」をオンにした（宛先 na.kamura.1263@gmail.com）
+- グループ名を「KotenOCR Android Testers」に変更（アドレスは同じ）。サイトの android.md の表記も直した（koten-ocr-ios、未コミット）
+- ポリシーの問題 1 件: 内部テストに Flutter 版 1.0.2（versionCode 3）が残っており、Billing Library 8 未満で警告。次の修正版を内部テストにも出して置き換える
+- グループのメンバーはまだ本人 1 人。旧リストでオプトイン済みの 3 人は未招待（アドレスを本人に聞く）
+- 次: 別セッションの不具合修正ができたら versionCode 7 で AAB を作り、本人がドラッグで上げ、Alpha と内部テストに出す
+
+#### 2026-11-02 2.1.1（versionCode 7）を出した
+- 枠の編集の修正（PR #1）を入れて versionCode 7 / 2.1.1 に上げ、AAB を作った（単体テスト 29 件すべて通過。ビルドは `JAVA_HOME=/opt/homebrew/opt/openjdk@17/libexec/openjdk.jdk/Contents/Home` が要る）
+- 本人がドラッグで上げ、Alpha に 7 (2.1.1) を作って審査に送った。審査中だったアイコン・フィーチャーグラフィック（送信 7）は「やり直し」になり、まとめて送り直した
+- 内部テストにも同じ 7 をライブラリから追加して公開（内部テストは審査なしで即公開）。Flutter 版 1.0.2（versionCode 3）は外れたので、Billing のポリシー警告が消えるか後で確かめる
+- テスト参加ページ（play.google.com/apps/testing/...）のアイコンはストアの掲載アイコンを使うので、審査が通れば新しい「典」に替わる
