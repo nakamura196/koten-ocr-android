@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Android 11 and lower. The encrypted API key cannot be decrypted on another device
+     (its Keystore key never leaves this one), so keep it out of backups. -->
+<full-backup-content>
+    <exclude domain="sharedpref" path="koten_ocr_secrets.xml" />
+</full-backup-content>
