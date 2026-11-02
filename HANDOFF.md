@@ -166,3 +166,12 @@ JAVA_HOME=/opt/homebrew/opt/openjdk@17/libexec/openjdk.jdk/Contents/Home ./gradl
   - 1 回だけ、入れ直し直後にスプラッシュのまま止まった（プロセスが無いのに画面だけ残っていた）。再現せず
   - 枠の編集から戻ると拡大されたまま、は今回再現せず
   - 明朝体の同梱、設定の各項目、デモ動画とスクリーンショット
+
+### 2026-11-02 APK 配布（Claude Code）
+
+- Play の掲載はクローズドテスト段階（本番未公開）。本番には 12 人・14 日のテストが要る
+- Play App Signing は Google 管理の鍵（アプリ署名鍵 SHA-256 B9:BE:F3:…）で、手元の jks はアップロード鍵（50:10:DC:…）。APK 版から Play 版へは上書き更新できない
+- そのため APK は別アプリ `com.nakamura196.koten_ocr.direct`（build type `direct`、arm64 のみ、アップロード鍵で署名）として配布。`./gradlew assembleDirect` → `scripts/release/publish-apk.zsh <notes.md>`
+- v2.1.0 を https://github.com/nakamura196/koten-ocr-android/releases/tag/v2.1.0 に公開（236MB）
+- 処理中画面の朱の線を、毎フレーム滑らかに進むよう修正（ProcessingScreen.kt）
+- 未確認: direct 版（R8 で縮小）での読み取り。紹介サイトへのリンク追加
