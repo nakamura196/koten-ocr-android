@@ -4,6 +4,7 @@ import android.content.Context
 import android.graphics.Bitmap
 import com.nakamura196.kotenocr.data.HistoryManager
 import com.nakamura196.kotenocr.data.PageTranslations
+import com.nakamura196.kotenocr.ui.screens.ScanProgress
 import com.nakamura196.kotenocr.data.SettingsManager
 import com.nakamura196.kotenocr.data.TranslationException
 import com.nakamura196.kotenocr.data.TranslationService
@@ -269,16 +270,18 @@ class AppState(
                 _currentHistoryItemId.value = saved.id
 
                 // Line-by-line box & text reveal animation on ProcessingScreen
+                // iOS finishScan: about 40 ms per line, at most 0.8 s, then a short hold.
+                // Skipped when the system's "Remove animations" is on (iOS Reduce Motion).
                 _scanProgress.value = 1f
-                if (result.detections.isNotEmpty()) {
+                if (result.detections.isNotEmpty() && !animationsOff()) {
                     _scanRevealedDetections.value = result.detections
                     val total = result.detections.size
-                    val stepMs = (800L / total).coerceAtMost(40L).coerceAtLeast(12L)
+                    val stepMs = ScanProgress.revealStepMs(total)
                     for (i in 1..total) {
                         delay(stepMs)
                         _scanRevealedCount.value = i
                     }
-                    delay(350)
+                    delay(ScanProgress.HOLD_AFTER_REVEAL_MS)
                 }
 
                 _showCompletionStamp.value = result.detections.isNotEmpty()
@@ -295,6 +298,11 @@ class AppState(
             }
         }
     }
+
+    /** Settings › Accessibility › "Remove animations" sets the animator scale to 0. */
+    private fun animationsOff(): Boolean = android.provider.Settings.Global.getFloat(
+        context.contentResolver, android.provider.Settings.Global.ANIMATOR_DURATION_SCALE, 1f
+    ) == 0f
 
     fun cancelProcessing() {
         ocrJob?.cancel()
