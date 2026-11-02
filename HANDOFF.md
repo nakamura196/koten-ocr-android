@@ -178,3 +178,10 @@ JAVA_HOME=/opt/homebrew/opt/openjdk@17/libexec/openjdk.jdk/Contents/Home ./gradl
 - 2026-11-02 テスター募集: Google グループ kotenocr-android-testers@googlegroups.com を作成（Play と同じ Google アカウント、Chrome の /u/2/。誰でも参加・投稿と参加者一覧は管理者のみ）。Play のクローズドテスト Alpha は現在メールのリスト「はじめてのメーリス」(16 人) で、オプトインは 3 人（本番には 12 人・14 日）。リストとグループはどちらか一方しか選べないため、切り替えは本人の判断待ち。その後、参加用リンクを取り、kotenocr.ldas.jp に Android 節（APK + テスター募集）を作る
 - 本人の決定（2026-11-02）: Play のテスターは Google グループに切り替え、メールのリストからはオプトイン済みの 3 人だけを移す。ただし Play Console には誰がオプトインしたかが出ないため、3 人のアドレスは本人に聞く。次の作業: 3 人をグループに招待 → Alpha のテスターを Google グループ（kotenocr-android-testers@googlegroups.com）に切り替え → 参加用リンクを控える → サイトに Android 節
 - 本人の要望: Play の掲載のロゴ（アイコン）や画像も、iOS の朱の「典」に合わせて新しくしたい（アプリ内の起動アイコンも同じ。未着手）
+
+#### 2026-11-02 テスターを Google グループに切替
+- Play のテスター欄は「メーリングリスト」か「Google グループ」の**どちらか一方**しか選べない（併用不可）。
+- 本人の判断で、旧リスト（はじめてのメーリス、16 人・参加済み 3 人）を外し、`kotenocr-android-testers@googlegroups.com` に切替。参加済みはいったん 0 人から数え直し。
+- 2026-11-02 に審査へ送信済み（公開の概要で「審査中」）。
+- 参加用リンク: ウェブ https://play.google.com/apps/testing/com.nakamura196.koten_ocr / Android https://play.google.com/store/apps/details?id=com.nakamura196.koten_ocr
+- 参加の手順: グループに参加 → ウェブのリンクで「テスターになる」→ Play からインストール。
