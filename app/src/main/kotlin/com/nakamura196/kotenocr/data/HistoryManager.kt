@@ -3,6 +3,7 @@ package com.nakamura196.kotenocr.data
 import android.content.Context
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
+import android.util.Log
 import com.nakamura196.kotenocr.models.HistoryItem
 import com.nakamura196.kotenocr.ocr.Detection
 import kotlinx.coroutines.Dispatchers
@@ -10,21 +11,19 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.withContext
-import org.json.JSONArray
-import org.json.JSONObject
 import java.io.File
 import java.io.FileOutputStream
 import java.util.UUID
 import kotlin.math.max
 
 /**
- * Persists up to [MAX_ITEMS] OCR scan history items on disk with atomic JSON updates
- * and downsampled thumbnail loading (`HistoryManager.swift` v2.1 parity).
+ * Persists OCR scan history on disk (no item cap, like `HistoryManager.swift`) with
+ * downsampled thumbnail loading. Reading and writing the index is in [HistoryStore].
  */
 class HistoryManager(context: Context) {
 
     private val historyDir = File(context.filesDir, "history").apply { mkdirs() }
-    private val indexFile = File(historyDir, "history.json")
+    private val store = HistoryStore(historyDir)
 
     private val _items = MutableStateFlow<List<HistoryItem>>(emptyList())
     val items: StateFlow<List<HistoryItem>> = _items.asStateFlow()
@@ -50,19 +49,10 @@ class HistoryManager(context: Context) {
             imageFileName = imgName
         )
 
+        // No cap: iOS keeps every scan, and silently dropping old ones lost user work.
         val updated = listOf(item) + _items.value
-        val trimmed = if (updated.size > MAX_ITEMS) {
-            val removed = updated.drop(MAX_ITEMS)
-            for (old in removed) {
-                File(historyDir, old.imageFileName).delete()
-            }
-            updated.take(MAX_ITEMS)
-        } else {
-            updated
-        }
-
-        _items.value = trimmed
-        persistToDisk(trimmed)
+        _items.value = updated
+        persistToDisk(updated)
         return item
     }
 
@@ -133,95 +123,18 @@ class HistoryManager(context: Context) {
         }
 
     private fun loadFromDisk() {
-        if (!indexFile.exists()) return
-        try {
-            val json = JSONArray(indexFile.readText())
-            val list = mutableListOf<HistoryItem>()
-            for (i in 0 until json.length()) {
-                val obj = json.getJSONObject(i)
-                val detsArr = obj.getJSONArray("detections")
-                val dets = mutableListOf<Detection>()
-                for (j in 0 until detsArr.length()) {
-                    val d = detsArr.getJSONObject(j)
-                    val boxArr = d.getJSONArray("box")
-                    dets.add(
-                        Detection(
-                            id = d.getInt("id"),
-                            box = intArrayOf(
-                                boxArr.getInt(0),
-                                boxArr.getInt(1),
-                                boxArr.getInt(2),
-                                boxArr.getInt(3)
-                            ),
-                            score = d.getDouble("score").toFloat(),
-                            classIndex = d.getInt("classIndex"),
-                            className = d.getString("className"),
-                            text = d.optString("text", ""),
-                            predCharCount = d.optDouble("predCharCount", 100.0).toFloat()
-                        )
-                    )
-                }
-                val translated = if (obj.has("translatedText") && !obj.isNull("translatedText")) {
-                    obj.getString("translatedText")
-                } else {
-                    null
-                }
-                list.add(
-                    HistoryItem(
-                        id = obj.getString("id"),
-                        timestamp = obj.getLong("timestamp"),
-                        text = obj.getString("text"),
-                        detections = dets,
-                        imageFileName = obj.getString("imageFileName"),
-                        translatedText = translated
-                    )
-                )
-            }
-            _items.value = list
-        } catch (_: Exception) {
-            _items.value = emptyList()
+        val result = store.load()
+        if (result.skipped > 0 || result.backup != null) {
+            Log.w(TAG, "history index partly unreadable: skipped=${result.skipped} backup=${result.backup?.name}")
         }
+        _items.value = result.items
     }
 
     private fun persistToDisk(items: List<HistoryItem>) {
-        val arr = JSONArray()
-        for (item in items) {
-            val detsArr = JSONArray()
-            for (det in item.detections) {
-                val d = JSONObject().apply {
-                    put("id", det.id)
-                    put("box", JSONArray(det.box.toList()))
-                    put("score", det.score.toDouble())
-                    put("classIndex", det.classIndex)
-                    put("className", det.className)
-                    put("text", det.text)
-                    put("predCharCount", det.predCharCount.toDouble())
-                }
-                detsArr.put(d)
-            }
-            val obj = JSONObject().apply {
-                put("id", item.id)
-                put("timestamp", item.timestamp)
-                put("text", item.text)
-                put("detections", detsArr)
-                put("imageFileName", item.imageFileName)
-                if (item.translatedText != null) put("translatedText", item.translatedText)
-            }
-            arr.put(obj)
-        }
-        try {
-            val tmpFile = File(historyDir, "history.json.tmp")
-            tmpFile.writeText(arr.toString())
-            if (!tmpFile.renameTo(indexFile)) {
-                indexFile.writeText(arr.toString())
-                tmpFile.delete()
-            }
-        } catch (_: Exception) {
-            // Ignore disk write failure
-        }
+        if (!store.write(items)) Log.w(TAG, "failed to write history index")
     }
 
     companion object {
-        private const val MAX_ITEMS = 50
+        private const val TAG = "HistoryManager"
     }
 }
