@@ -4,10 +4,7 @@ import ai.onnxruntime.OnnxTensor
 import ai.onnxruntime.OrtEnvironment
 import ai.onnxruntime.OrtSession
 import android.graphics.Bitmap
-import android.graphics.Canvas
 import android.graphics.Matrix
-import android.graphics.Paint
-import android.graphics.Rect
 import java.io.File
 import java.nio.FloatBuffer
 
@@ -66,22 +63,10 @@ class PARSeqRecognizer(
             bitmap
         }
 
-        val resized = Bitmap.createBitmap(inputWidth, inputHeight, Bitmap.Config.ARGB_8888)
-        val canvas = Canvas(resized)
-        val paint = Paint(Paint.FILTER_BITMAP_FLAG)
-        canvas.drawBitmap(
-            workBitmap,
-            Rect(0, 0, workBitmap.width, workBitmap.height),
-            Rect(0, 0, inputWidth, inputHeight),
-            paint
-        )
+        val pixels = Resample.bitmap(workBitmap, inputWidth, inputHeight)
         if (workBitmap !== bitmap) {
             workBitmap.recycle()
         }
-
-        val pixels = IntArray(inputWidth * inputHeight)
-        resized.getPixels(pixels, 0, inputWidth, 0, 0, inputWidth, inputHeight)
-        resized.recycle()
 
         val channelSize = inputWidth * inputHeight
         val floatData = FloatArray(3 * channelSize)
