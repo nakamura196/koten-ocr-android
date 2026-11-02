@@ -18,7 +18,7 @@ It runs the National Diet Library's [NDL Koten OCR-Lite](https://github.com/ndl-
 - Camera or photo picker, with perspective correction (auto-correct) and automatic deskew
 - Results with bounding boxes, a confidence slider, and an interactive box editor (move, resize, add, split, merge, re-read)
 - Export as text, TXT or PDF; scan history saved on the device
-- Modern-Japanese translation of classical text: cloud API (OpenAI-compatible) that you configure
+- Modern-Japanese translation of classical text, using a cloud AI service with your own API key (OpenAI, OpenRouter, or Google Gemini)
 - Japanese and English UI
 
 ## OCR modes
