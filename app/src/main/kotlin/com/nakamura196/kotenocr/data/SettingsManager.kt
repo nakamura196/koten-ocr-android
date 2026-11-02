@@ -7,6 +7,7 @@ import android.os.Build
 import android.os.LocaleList
 import com.nakamura196.kotenocr.ocr.Deskew
 import com.nakamura196.kotenocr.ocr.OCRMode
+import com.nakamura196.kotenocr.util.CaptureMode
 import java.util.Locale
 
 enum class ThemeMode(val key: String) {
@@ -136,6 +137,11 @@ class SettingsManager(context: Context) {
     var preferredOCRMode: OCRMode
         get() = OCRMode.fromKey(prefs.getString(KEY_PREFERRED_OCR_MODE, OCRMode.KOTEN.key))
         set(value) = prefs.edit().putString(KEY_PREFERRED_OCR_MODE, value.key).apply()
+
+    // Last way of taking a page (normal camera / document scanner); the scanner reopens by itself.
+    var lastCaptureMode: CaptureMode
+        get() = CaptureMode.fromKey(prefs.getString(CaptureMode.PREF_KEY, null))
+        set(value) = prefs.edit().putString(CaptureMode.PREF_KEY, value.key).apply()
 
     fun hasSeenCoachMark(mark: CoachMark): Boolean =
         prefs.getBoolean(mark.prefKey, false)

@@ -86,6 +86,8 @@
     <string name="camera_capture_failed">撮影に失敗しました。もう一度お試しください。</string>
     <string name="camera_frame_hint">ページ全体を枠に入れてください</string>
     <string name="coach_shutter">ここを押して撮影</string>
+    <string name="scan_document">書類スキャン</string>
+    <string name="tilt_try_scanner">書類スキャンも使えます</string>
     <string name="tilt_hint">資料と平行に構えてください</string>
     <string name="flash_on">フラッシュ オン</string>
     <string name="flash_off">フラッシュ オフ</string>
