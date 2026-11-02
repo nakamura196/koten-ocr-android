@@ -234,7 +234,7 @@ fun ResultScreen(
     }
 
     fun startTranslation() {
-        if (settingsManager.apiKey.isBlank()) {
+        if (settingsManager.apiProvider.requiresApiKey && settingsManager.apiKey.isBlank()) {
             showNoKeyDialog = true
             return
         }

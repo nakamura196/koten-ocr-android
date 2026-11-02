@@ -18,7 +18,15 @@ class TranslationException(
         NO_KEY,
         TOO_LONG,
         SERVER,
-        INVALID_RESPONSE
+        INVALID_RESPONSE,
+        /** On-device model: not supported on this device. */
+        LOCAL_UNAVAILABLE,
+        /** On-device model: busy or the per-app quota is used up; try again later. */
+        LOCAL_BUSY,
+        /** On-device model: refused because the app went to the background. */
+        LOCAL_BACKGROUND,
+        /** On-device model: not enough storage to download it. */
+        LOCAL_NO_SPACE
     }
 }
 
@@ -121,7 +129,8 @@ object TranslationService {
         }
     }
 
-    private fun buildSystemPrompt(
+    /** Shared with [OnDeviceTranslator] so both use the same instructions (as on iOS). */
+    internal fun buildSystemPrompt(
         targetLanguage: TargetLanguage,
         level: TranslationLevel
     ): String {

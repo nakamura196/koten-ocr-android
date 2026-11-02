@@ -37,6 +37,7 @@ import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -54,6 +55,8 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.nakamura196.kotenocr.R
 import com.nakamura196.kotenocr.data.ApiProvider
+import com.nakamura196.kotenocr.data.LocalAIStatus
+import com.nakamura196.kotenocr.data.OnDeviceTranslator
 import com.nakamura196.kotenocr.data.SettingsManager
 import com.nakamura196.kotenocr.data.TargetLanguage
 import com.nakamura196.kotenocr.data.TranslationLevel
@@ -252,11 +255,7 @@ fun TranslationSettingsScreen(
                             onExpandedChange = { providerMenuExpanded = it }
                         ) {
                             OutlinedTextField(
-                                value = if (selectedProvider == ApiProvider.CUSTOM) {
-                                    stringResource(R.string.provider_custom)
-                                } else {
-                                    selectedProvider.displayName
-                                },
+                                value = providerName(selectedProvider),
                                 onValueChange = {},
                                 readOnly = true,
                                 label = { Text(stringResource(R.string.settings_api_provider)) },
@@ -271,18 +270,22 @@ fun TranslationSettingsScreen(
                                 expanded = providerMenuExpanded,
                                 onDismissRequest = { providerMenuExpanded = false }
                             ) {
-                                ApiProvider.entries.forEach { provider ->
-                                    val name = if (provider == ApiProvider.CUSTOM) {
-                                        stringResource(R.string.provider_custom)
-                                    } else {
-                                        provider.displayName
-                                    }
+                                // Like iOS hiding it below iOS 26: offered only where it works
+                                // (kept in the list if it is the current choice).
+                                ApiProvider.entries.filter {
+                                    it != ApiProvider.LOCAL_AI || settingsManager.localAISupported ||
+                                        selectedProvider == ApiProvider.LOCAL_AI
+                                }.forEach { provider ->
                                     DropdownMenuItem(
-                                        text = { Text(name) },
+                                        text = { Text(providerName(provider)) },
                                         onClick = {
                                             selectedProvider = provider
                                             providerMenuExpanded = false
-                                            if (provider != ApiProvider.CUSTOM) {
+                                            // Nothing else to enter, so it takes effect at once
+                                            // (iOS saves every provider change immediately).
+                                            if (provider == ApiProvider.LOCAL_AI) {
+                                                settingsManager.apiProvider = provider
+                                            } else if (provider != ApiProvider.CUSTOM) {
                                                 apiEndpoint = provider.endpoint
                                                 if (provider.models.none { it.first == apiModel }) {
                                                     apiModel = provider.models.first().first
@@ -294,7 +297,9 @@ fun TranslationSettingsScreen(
                             }
                         }
 
-                        if (selectedProvider != ApiProvider.CUSTOM) {
+                        if (selectedProvider == ApiProvider.LOCAL_AI) {
+                            LocalAIStatusRow()
+                        } else if (selectedProvider != ApiProvider.CUSTOM) {
                             val currentModelDisplay = selectedProvider.models
                                 .firstOrNull { it.first == apiModel }?.second ?: apiModel
 
@@ -346,6 +351,7 @@ fun TranslationSettingsScreen(
                             )
                         }
 
+                        if (selectedProvider.requiresApiKey) {
                         OutlinedTextField(
                             value = apiKey,
                             onValueChange = { apiKey = it },
@@ -396,8 +402,13 @@ fun TranslationSettingsScreen(
                             )
                         }
 
+                        }
+
                         Text(
-                            text = stringResource(R.string.settings_api_footer),
+                            text = stringResource(
+                                if (selectedProvider == ApiProvider.LOCAL_AI) R.string.local_ai_footer
+                                else R.string.settings_api_footer
+                            ),
                             fontSize = 12.sp,
                             color = KotenColor.inkSecondary
                         )
@@ -408,4 +419,26 @@ fun TranslationSettingsScreen(
             SnackbarHost(hostState = snackbarHostState)
         }
     }
+}
+
+@Composable
+private fun providerName(provider: ApiProvider): String = when (provider) {
+    ApiProvider.LOCAL_AI -> stringResource(R.string.provider_local_ai)
+    ApiProvider.CUSTOM -> stringResource(R.string.provider_custom)
+    else -> provider.displayName
+}
+
+/** iOS shows the same line under the picker (`TranslationSettingsView`, `localAIStatus.message`). */
+@Composable
+private fun LocalAIStatusRow() {
+    var status by remember { mutableStateOf<LocalAIStatus?>(null) }
+    LaunchedEffect(Unit) { status = OnDeviceTranslator.status() }
+    val (textRes, color) = when (status) {
+        null -> R.string.local_ai_checking to KotenColor.inkSecondary
+        LocalAIStatus.AVAILABLE -> R.string.local_ai_ready to KotenColor.ink
+        LocalAIStatus.DOWNLOADABLE -> R.string.local_ai_downloadable to KotenColor.ink
+        LocalAIStatus.DOWNLOADING -> R.string.local_ai_downloading to KotenColor.ink
+        LocalAIStatus.UNAVAILABLE -> R.string.local_ai_unavailable to KotenColor.shu
+    }
+    Text(text = stringResource(textRes), fontSize = 13.sp, color = color)
 }

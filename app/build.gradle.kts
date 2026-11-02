@@ -135,6 +135,10 @@ dependencies {
     // Document scanner (Google Play services; same page camera as iOS VisionKit)
     implementation("com.google.android.gms:play-services-mlkit-document-scanner:16.0.0")
 
+    // On-device translation (Gemini Nano via AICore; iOS uses Apple Foundation Models).
+    // beta2 on purpose: beta3+ need kotlin-stdlib 2.3, this project is on Kotlin 2.1.
+    implementation("com.google.mlkit:genai-prompt:1.0.0-beta2")
+
     // Coroutines
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.9.0")
 

@@ -206,6 +206,17 @@
     <string name="translation_error_invalid">応答の解析に失敗しました</string>
     <string name="translation_no_key_title">APIキーが必要です</string>
     <string name="translation_no_key_message">設定画面でOpenAI互換APIキーを登録してください。</string>
+    <string name="provider_local_ai">ローカルAI（Google）</string>
+    <string name="local_ai_ready">端末のAIが使えます。APIキーは要りません。訳文は端末の外に送られません。</string>
+    <string name="local_ai_downloadable">初めて翻訳するときに、AIのモデルを端末にダウンロードします。Wi-Fiにつないでお使いください。</string>
+    <string name="local_ai_downloading">AIのモデルをダウンロードしています。しばらくお待ちください。</string>
+    <string name="local_ai_unavailable">この端末はローカルAIに対応していません。ほかのAPIプロバイダーを選んでください。</string>
+    <string name="local_ai_checking">確認しています…</string>
+    <string name="local_ai_footer">Google の端末内AI（Gemini Nano）で翻訳します。クラウドのAIより短く、誤りも多くなりがちです。</string>
+    <string name="translation_error_local_unavailable">この端末ではローカルAIを使えません。翻訳の設定でほかのAPIプロバイダーを選んでください。</string>
+    <string name="translation_error_local_busy">端末のAIが混み合っています。しばらくしてからもう一度お試しください。</string>
+    <string name="translation_error_local_background">翻訳中にアプリが背面に回ったため止まりました。アプリを開いたまま、もう一度お試しください。</string>
+    <string name="translation_error_local_no_space">AIのモデルをダウンロードする空き容量がありません。</string>
     <string name="translation_open_settings">設定を開く</string>
     <string name="translation_empty">現代語訳がまだありません</string>
     <string name="tab_ocr">OCR結果</string>
