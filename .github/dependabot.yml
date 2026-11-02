@@ -1,0 +1,24 @@
+version: 2
+updates:
+  - package-ecosystem: "gradle"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+    open-pull-requests-limit: 10
+    groups:
+      minor-and-patch:
+        update-types: ["minor", "patch"]
+    # Supply-chain protection: do not take freshly published versions.
+    # Security updates ignore the cooldown and are applied immediately.
+    cooldown:
+      default-days: 5
+      semver-major-days: 30
+      semver-minor-days: 7
+      semver-patch-days: 3
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+    # github-actions does not support semver-*-days; adding them invalidates the whole file.
+    cooldown:
+      default-days: 5

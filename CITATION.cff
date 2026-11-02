@@ -1,0 +1,35 @@
+cff-version: 1.2.0
+message: "If you use this software, please cite it as below."
+title: "KotenOCR for Android"
+abstract: "An Android app that reads classical Japanese texts (kuzushiji) and modern printed Japanese texts entirely on-device, using the National Diet Library's NDL Koten OCR-Lite and NDLOCR-Lite models."
+type: software
+version: "2.1.0"
+date-released: "2026-11-02"
+license: MIT
+repository-code: "https://github.com/nakamura196/koten-ocr-android"
+url: "https://kotenocr.ldas.jp/android-en.html"
+authors:
+  - family-names: Nakamura
+    given-names: Satoru
+    affiliation: "The University of Tokyo"
+    email: "nakamura.satoru@mail.u-tokyo.ac.jp"
+keywords:
+  - OCR
+  - kuzushiji
+  - classical Japanese
+  - digital humanities
+  - Android
+  - ONNX Runtime
+references:
+  - type: software
+    title: "NDL Koten OCR-Lite"
+    authors:
+      - name: "National Diet Library, Japan"
+    url: "https://github.com/ndl-lab/ndlkotenocr-lite"
+    license: CC-BY-4.0
+  - type: software
+    title: "NDLOCR-Lite"
+    authors:
+      - name: "National Diet Library, Japan"
+    url: "https://github.com/ndl-lab/ndlocr-lite"
+    license: CC-BY-4.0
