@@ -206,6 +206,17 @@
     <string name="translation_error_invalid">Failed to parse response</string>
     <string name="translation_no_key_title">API Key Required</string>
     <string name="translation_no_key_message">Please register an OpenAI-compatible API key in Settings.</string>
+    <string name="provider_local_ai">Local AI (Google)</string>
+    <string name="local_ai_ready">On-device AI is ready. No API key needed, and the text never leaves this device.</string>
+    <string name="local_ai_downloadable">The AI model will be downloaded to this device on your first translation. Please use Wi-Fi.</string>
+    <string name="local_ai_downloading">Downloading the AI model. Please wait a moment.</string>
+    <string name="local_ai_unavailable">This device does not support Local AI. Please choose another API provider.</string>
+    <string name="local_ai_checking">Checking…</string>
+    <string name="local_ai_footer">Translates with Google\'s on-device AI (Gemini Nano). Results tend to be shorter and less accurate than cloud AI.</string>
+    <string name="translation_error_local_unavailable">Local AI is not available on this device. Choose another API provider in Translation Settings.</string>
+    <string name="translation_error_local_busy">The on-device AI is busy. Please try again in a moment.</string>
+    <string name="translation_error_local_background">Translation stopped because the app went to the background. Keep the app open and try again.</string>
+    <string name="translation_error_local_no_space">Not enough storage to download the AI model.</string>
     <string name="translation_open_settings">Open Settings</string>
     <string name="translation_empty">No translation yet</string>
     <string name="tab_ocr">OCR Result</string>

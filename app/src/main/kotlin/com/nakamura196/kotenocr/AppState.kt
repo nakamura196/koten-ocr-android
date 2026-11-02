@@ -7,6 +7,9 @@ import com.nakamura196.kotenocr.data.PageTranslations
 import com.nakamura196.kotenocr.data.SettingsManager
 import com.nakamura196.kotenocr.data.TranslationException
 import com.nakamura196.kotenocr.data.TranslationService
+import com.nakamura196.kotenocr.data.ApiProvider
+import com.nakamura196.kotenocr.data.OnDeviceTranslator
+import com.nakamura196.kotenocr.data.LocalAIStatus
 import com.nakamura196.kotenocr.data.ThemeMode
 import com.nakamura196.kotenocr.models.HistoryItem
 import com.nakamura196.kotenocr.ocr.Detection
@@ -116,6 +119,8 @@ class AppState(
             settingsManager.applyLanguage()
         }
         initModels()
+        // Whether to offer (and default to) on-device translation; cheap, no download.
+        scope.launch { settingsManager.localAISupported = OnDeviceTranslator.status() != LocalAIStatus.UNAVAILABLE }
     }
 
     fun initModels() {
@@ -319,7 +324,13 @@ class AppState(
     private val translations = PageTranslations(
         scope = scope,
         translate = { text ->
-            TranslationService.translate(
+            if (settingsManager.apiProvider == ApiProvider.LOCAL_AI) {
+                OnDeviceTranslator.translate(
+                    text = text,
+                    targetLanguage = settingsManager.targetLanguage,
+                    level = settingsManager.translationLevel
+                )
+            } else TranslationService.translate(
                 text = text,
                 apiKey = settingsManager.apiKey,
                 endpoint = settingsManager.apiEndpoint,
@@ -350,6 +361,10 @@ class AppState(
             TranslationException.ErrorCode.TOO_LONG -> context.getString(R.string.translation_error_too_long)
             TranslationException.ErrorCode.SERVER -> "${context.getString(R.string.translation_error_server)}: ${e.message}"
             TranslationException.ErrorCode.INVALID_RESPONSE -> context.getString(R.string.translation_error_invalid)
+            TranslationException.ErrorCode.LOCAL_UNAVAILABLE -> context.getString(R.string.translation_error_local_unavailable)
+            TranslationException.ErrorCode.LOCAL_BUSY -> context.getString(R.string.translation_error_local_busy)
+            TranslationException.ErrorCode.LOCAL_BACKGROUND -> context.getString(R.string.translation_error_local_background)
+            TranslationException.ErrorCode.LOCAL_NO_SPACE -> context.getString(R.string.translation_error_local_no_space)
         }
         else -> e.localizedMessage ?: context.getString(R.string.translation_error_server)
     }
