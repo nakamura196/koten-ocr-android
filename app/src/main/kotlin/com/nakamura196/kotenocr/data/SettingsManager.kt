@@ -38,6 +38,8 @@ enum class ApiProvider(
     val endpoint: String,
     val models: List<Pair<String, String>>
 ) {
+    /** On-device model (Gemini Nano). No key, endpoint or model choice; see [OnDeviceTranslator]. */
+    LOCAL_AI("localai", "", "", emptyList()),
     OPENAI(
         "openai", "OpenAI",
         "https://api.openai.com/v1/chat/completions",
@@ -55,9 +57,24 @@ enum class ApiProvider(
     ),
     CUSTOM("custom", "Custom", "", emptyList());
 
+    /** Cloud providers need an API key; the on-device model does not. */
+    val requiresApiKey: Boolean get() = this != LOCAL_AI
+
     companion object {
         fun fromKey(key: String): ApiProvider =
             entries.firstOrNull { it.key == key } ?: OPENAI
+
+        /**
+         * [storedKey] wins. With none stored: a saved API key means the old default (OpenAI);
+         * otherwise the on-device model when this device supports it (iOS's default), else OpenAI.
+         * Most Android phones do not support it, so it is not the default everywhere.
+         */
+        fun defaultFor(storedKey: String?, hasKey: () -> Boolean, localAISupported: Boolean): ApiProvider = when {
+            storedKey != null -> fromKey(storedKey)
+            hasKey() -> OPENAI
+            localAISupported -> LOCAL_AI
+            else -> OPENAI
+        }
     }
 }
 
@@ -159,16 +176,25 @@ class SettingsManager(context: Context) {
     }
 
     var apiProvider: ApiProvider
-        get() = ApiProvider.fromKey(prefs.getString(KEY_API_PROVIDER, ApiProvider.OPENAI.key) ?: ApiProvider.OPENAI.key)
+        get() = ApiProvider.defaultFor(
+            prefs.getString(KEY_API_PROVIDER, null),
+            hasKey = { apiKey.isNotBlank() },
+            localAISupported = localAISupported
+        )
         set(value) {
             prefs.edit().putString(KEY_API_PROVIDER, value.key).apply()
-            if (value != ApiProvider.CUSTOM) {
+            if (value != ApiProvider.CUSTOM && value != ApiProvider.LOCAL_AI) {
                 apiEndpoint = value.endpoint
                 if (value.models.none { it.first == apiModel }) {
                     apiModel = value.models.first().first
                 }
             }
         }
+
+    /** Last answer from [OnDeviceTranslator.status] (refreshed at every app start by AppState). */
+    var localAISupported: Boolean
+        get() = prefs.getBoolean(KEY_LOCAL_AI_SUPPORTED, false)
+        set(value) = prefs.edit().putBoolean(KEY_LOCAL_AI_SUPPORTED, value).apply()
 
     // Encrypted with the Android Keystore and kept out of backups (see SecretStore).
     private val secrets: SecretStore by lazy {
@@ -220,6 +246,7 @@ class SettingsManager(context: Context) {
         private const val KEY_PREFERRED_OCR_MODE = "preferredOCRMode"
         private const val KEY_API_PROVIDER = "api_provider"
         private const val KEY_API_KEY = "translation_api_key"
+        private const val KEY_LOCAL_AI_SUPPORTED = "local_ai_supported"
         private const val KEY_API_ENDPOINT = "translation_api_endpoint"
         private const val KEY_API_MODEL = "translation_api_model"
         private const val KEY_TARGET_LANG = "target_language"

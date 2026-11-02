@@ -106,12 +106,10 @@ object Deskew {
         val scale = min(1.0, WORKING_LONG_SIDE.toDouble() / max(sw, sh).toDouble())
         val w = max(1, (sw * scale).roundToInt())
         val h = max(1, (sh * scale).roundToInt())
-        val small = if (w == sw && h == sh) bitmap else Bitmap.createScaledBitmap(bitmap, w, h, true)
-
-        val pixels = IntArray(w * h)
-        small.getPixels(pixels, 0, w, 0, 0, w, h)
-        if (small !== bitmap) {
-            small.recycle()
+        val pixels = if (w == sw && h == sh) {
+            IntArray(w * h).also { bitmap.getPixels(it, 0, w, 0, 0, w, h) }
+        } else {
+            Resample.bitmap(bitmap, w, h)
         }
 
         val gray = IntArray(w * h)
