@@ -191,3 +191,9 @@ JAVA_HOME=/opt/homebrew/opt/openjdk@17/libexec/openjdk.jdk/Contents/Home ./gradl
 - AAB（約 248MB、ダウンロード約 223MB）は Chrome 拡張では 10MB 超を上げられないため、本人がドラッグで上げた。リリースノート日英を入れて 6 (2.1.0) を Alpha に。テスターのグループ切替と一緒に審査中（2026-11-02 送信）。警告はデバッグシンボル未アップロードの 1 件のみ
 - 紹介サイトに Android 版ページを公開: https://kotenocr.ldas.jp/android.html（英語 android-en.html）。koten-ocr-ios PR #13
 - 残り: 審査が通ったら自分の端末でテスト参加 → Play から入るか確認。テスター募集の告知（身近な人・Bluesky・ブログ、集まらなければ X）。ロゴ・掲載画像を iOS の朱の「典」に揃える
+
+#### 2026-11-02 募集ページを絞る・APK を別ページに
+- android.html をテスター募集だけに（何のアプリか → お願い → 必要なもの → 3 手順）。APK は apk.html / apk-en.html に分け、サイトからリンクせず noindex。すぐ直接入れたい人にだけ個別に URL を渡す。koten-ocr-ios PR #14
+- ファビコンを `<link rel="icon" href="/favicon.ico?v=2.1">` で明示（古いキャッシュが残っていたため）
+- 次: 審査が通ったら、未参加の 2 つ目の Google アカウントで 3 手順を端末で通しで操作してもらい、adb screencap で 3 枚（グループに参加 / テスターになる / インストール）を撮って android.html の各手順の下に入れる。参加〜Play インストールの確認も兼ねる。告知文の下書きは scratchpad の tester-recruit-drafts.md（Bluesky 日英・身近な人向け）
+- 2026-11-02 時点で審査中（自動点検は終了）
