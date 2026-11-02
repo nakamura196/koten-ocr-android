@@ -10,7 +10,6 @@ import android.graphics.Paint
 import android.graphics.Rect
 import java.nio.FloatBuffer
 import kotlin.math.max
-import kotlin.math.min
 
 /**
  * RTMDet-s layout detector (input 1024x1024 — the file is named 1280x1280 but its graph input is 1024, same as iOS) for classical Japanese texts (NDL古典籍OCR-Lite).
@@ -22,7 +21,6 @@ class RTMDetector(
     private val inputWidth: Int = 1024,
     private val inputHeight: Int = 1024,
     private val scoreThreshold: Float = 0.3f,
-    private val iouThreshold: Float = 0.4f,
     private val maxDetections: Int = 1000
 ) : AutoCloseable {
 
@@ -143,15 +141,7 @@ class RTMDetector(
 
             if (score < scoreThreshold) continue
 
-            val box = Detection.clampedBox(
-                x1 = x1,
-                y1 = y1,
-                x2 = x2,
-                y2 = y2,
-                width = origW,
-                height = origH,
-                truncateTowardZero = false
-            ) ?: continue
+            val box = paddedBox(x1, y1, x2, y2, origW, origH) ?: continue
 
             val classIdx = labels?.get(i) ?: 1
             val className = if (classIdx in classNames.indices) classNames[classIdx] else "unknown"
@@ -167,47 +157,26 @@ class RTMDetector(
             )
         }
 
-        val nmsResult = applyNMS(detections)
-        return nmsResult.take(maxDetections).mapIndexed { index, det ->
+        // No NMS: the ONNX model already outputs post-NMS boxes (same as iOS). A second pass
+        // at IoU 0.4 can drop overlapping boxes that iOS keeps.
+        return detections.sortedByDescending { it.score }.take(maxDetections).mapIndexed { index, det ->
             det.copy(id = index)
         }
     }
 
-    private fun applyNMS(detections: List<Detection>): List<Detection> {
-        val sorted = detections.sortedByDescending { it.score }
-        val kept = mutableListOf<Detection>()
+    companion object {
+        /** Fraction of the box height added above and below (iOS `RTMDetector.swift`). */
+        const val VERTICAL_PAD_RATIO = 0.02f
 
-        for (det in sorted) {
-            var suppressed = false
-            for (existing in kept) {
-                if (computeIoU(det.box, existing.box) > iouThreshold) {
-                    suppressed = true
-                    break
-                }
-            }
-            if (!suppressed) {
-                kept.add(det)
-            }
+        /**
+         * Model box (original-image pixels) → clamped integer box, 2% taller above and below,
+         * as iOS (`RTMDetector.swift`) and NDL古典籍OCR-Lite do: the raw boxes clip the top and
+         * bottom strokes of a column.
+         */
+        fun paddedBox(x1: Float, y1: Float, x2: Float, y2: Float, width: Int, height: Int): IntArray? {
+            val pad = (y2 - y1) * VERTICAL_PAD_RATIO
+            return Detection.clampedBox(x1, y1 - pad, x2, y2 + pad, width, height, truncateTowardZero = false)
         }
-
-        return kept
-    }
-
-    private fun computeIoU(a: IntArray, b: IntArray): Float {
-        val x1 = max(a[0], b[0])
-        val y1 = max(a[1], b[1])
-        val x2 = min(a[2], b[2])
-        val y2 = min(a[3], b[3])
-
-        val interW = max(0, x2 - x1)
-        val interH = max(0, y2 - y1)
-        val interArea = interW.toFloat() * interH.toFloat()
-
-        val areaA = (a[2] - a[0]).toFloat() * (a[3] - a[1]).toFloat()
-        val areaB = (b[2] - b[0]).toFloat() * (b[3] - b[1]).toFloat()
-        val unionArea = areaA + areaB - interArea
-
-        return if (unionArea > 0f) interArea / unionArea else 0f
     }
 
     override fun close() {
