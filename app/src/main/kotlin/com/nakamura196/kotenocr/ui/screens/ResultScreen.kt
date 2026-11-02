@@ -118,8 +118,6 @@ import androidx.compose.ui.unit.sp
 import com.nakamura196.kotenocr.R
 import com.nakamura196.kotenocr.data.ExportManager
 import com.nakamura196.kotenocr.data.SettingsManager
-import com.nakamura196.kotenocr.data.TranslationException
-import com.nakamura196.kotenocr.data.TranslationService
 import com.nakamura196.kotenocr.ocr.ConfidenceFilter
 import com.nakamura196.kotenocr.ocr.Detection
 import com.nakamura196.kotenocr.ui.theme.KotenColor
@@ -152,7 +150,9 @@ fun ResultScreen(
     bitmap: Bitmap,
     initialDetections: List<Detection>,
     initialText: String,
-    initialTranslatedText: String? = null,
+    translatedText: String? = null,
+    isTranslating: Boolean = false,
+    translationError: String? = null,
     showStampInitial: Boolean = false,
     errorMessage: String? = null,
     settingsManager: SettingsManager,
@@ -160,7 +160,7 @@ fun ResultScreen(
     onBack: () -> Unit,
     onReCrop: () -> Unit,
     onRetake: () -> Unit,
-    onTranslationCompleted: ((String) -> Unit)? = null,
+    onTranslate: ((String) -> Unit)? = null,
     onDetectionsUpdated: ((List<Detection>, String) -> Unit)? = null,
     onRereadBoxes: (suspend (List<Detection>) -> List<Detection>)? = null,
     onOrderBoxes: ((List<Detection>, Int, Int) -> List<Detection>)? = null,
@@ -193,10 +193,9 @@ fun ResultScreen(
     var isRereadingBoxes by remember { mutableStateOf(false) }
 
     // Translation state
-    var selectedTab by remember { mutableIntStateOf(0) }
-    var translatedText by remember(initialTranslatedText) { mutableStateOf(initialTranslatedText) }
-    var isTranslating by remember { mutableStateOf(false) }
-    var translationError by remember { mutableStateOf<String?>(null) }
+    // The request itself lives in AppState so it survives leaving this screen; coming back
+    // while it is still running reopens the translation tab.
+    var selectedTab by remember { mutableIntStateOf(if (isTranslating) 1 else 0) }
     var showNoKeyDialog by remember { mutableStateOf(false) }
 
     // Completion stamp animation
@@ -235,39 +234,12 @@ fun ResultScreen(
     }
 
     fun startTranslation() {
-        val apiKey = settingsManager.apiKey
-        if (apiKey.isBlank()) {
+        if (settingsManager.apiKey.isBlank()) {
             showNoKeyDialog = true
             return
         }
         selectedTab = 1
-        isTranslating = true
-        translationError = null
-        scope.launch {
-            try {
-                val result = TranslationService.translate(
-                    text = visibleText.ifBlank { initialText },
-                    apiKey = apiKey,
-                    endpoint = settingsManager.apiEndpoint,
-                    model = settingsManager.apiModel,
-                    targetLanguage = settingsManager.targetLanguage,
-                    level = settingsManager.translationLevel
-                )
-                translatedText = result
-                onTranslationCompleted?.invoke(result)
-            } catch (e: TranslationException) {
-                translationError = when (e.errorCode) {
-                    TranslationException.ErrorCode.NO_KEY -> context.getString(R.string.translation_error_no_key)
-                    TranslationException.ErrorCode.TOO_LONG -> context.getString(R.string.translation_error_too_long)
-                    TranslationException.ErrorCode.SERVER -> "${context.getString(R.string.translation_error_server)}: ${e.message}"
-                    TranslationException.ErrorCode.INVALID_RESPONSE -> context.getString(R.string.translation_error_invalid)
-                }
-            } catch (e: Exception) {
-                translationError = e.localizedMessage ?: context.getString(R.string.translation_error_server)
-            } finally {
-                isTranslating = false
-            }
-        }
+        onTranslate?.invoke(visibleText.ifBlank { initialText })
     }
 
     fun runPendingBoxReread(editor: BoxEditorState, finishAfter: Boolean) {
@@ -575,7 +547,7 @@ fun ResultScreen(
                                     ShareMenuItem(stringResource(R.string.share_text), Icons.Default.Share) {
                                         showShareMenu = false
                                         val shareBody = if (selectedTab == 1 && translatedText != null) {
-                                            translatedText!!
+                                            translatedText
                                         } else {
                                             visibleText
                                         }

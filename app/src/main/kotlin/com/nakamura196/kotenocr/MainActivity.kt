@@ -80,6 +80,9 @@ private fun KotenOCRApp(appState: AppState) {
     val detections by appState.detections.collectAsState()
     val ocrText by appState.ocrText.collectAsState()
     val translatedText by appState.translatedText.collectAsState()
+    val translatingPages by appState.translatingPages.collectAsState()
+    val translationErrors by appState.translationErrors.collectAsState()
+    val currentPageKey by appState.currentPageKey.collectAsState()
     val ocrMode by appState.ocrMode.collectAsState()
     val scanProgress by appState.scanProgress.collectAsState()
     val scanRevealedDetections by appState.scanRevealedDetections.collectAsState()
@@ -215,7 +218,9 @@ private fun KotenOCRApp(appState: AppState) {
                     bitmap = bmp,
                     initialDetections = detections,
                     initialText = ocrText,
-                    initialTranslatedText = translatedText,
+                    translatedText = translatedText,
+                    isTranslating = (currentPageKey ?: AppState.NO_HISTORY_PAGE) in translatingPages,
+                    translationError = translationErrors[currentPageKey ?: AppState.NO_HISTORY_PAGE],
                     showStampInitial = showCompletionStamp,
                     errorMessage = ocrError,
                     settingsManager = appState.settingsManager,
@@ -223,9 +228,7 @@ private fun KotenOCRApp(appState: AppState) {
                     onBack = { appState.backFromResult() },
                     onReCrop = { appState.reCrop() },
                     onRetake = { appState.navigateToCamera() },
-                    onTranslationCompleted = { translated ->
-                        appState.saveTranslationToHistory(translated)
-                    },
+                    onTranslate = { text -> appState.translateCurrentPage(text) },
                     onDetectionsUpdated = { updatedDets, updatedText ->
                         appState.updateCurrentDetections(updatedDets, updatedText)
                     },

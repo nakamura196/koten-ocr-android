@@ -3,7 +3,10 @@ package com.nakamura196.kotenocr
 import android.content.Context
 import android.graphics.Bitmap
 import com.nakamura196.kotenocr.data.HistoryManager
+import com.nakamura196.kotenocr.data.PageTranslations
 import com.nakamura196.kotenocr.data.SettingsManager
+import com.nakamura196.kotenocr.data.TranslationException
+import com.nakamura196.kotenocr.data.TranslationService
 import com.nakamura196.kotenocr.data.ThemeMode
 import com.nakamura196.kotenocr.models.HistoryItem
 import com.nakamura196.kotenocr.ocr.Detection
@@ -301,10 +304,46 @@ class AppState(
         historyManager.updateDetections(itemId, updatedDetections, updatedText)
     }
 
-    fun saveTranslationToHistory(translated: String) {
-        _translatedText.value = translated
-        val itemId = _currentHistoryItemId.value ?: return
-        historyManager.updateTranslation(itemId, translated)
+    /**
+     * Translations run here, not in the result screen, so leaving the screen no longer cancels
+     * them; the result is saved to the page's history item when it arrives.
+     */
+    private val translations = PageTranslations(
+        scope = scope,
+        translate = { text ->
+            TranslationService.translate(
+                text = text,
+                apiKey = settingsManager.apiKey,
+                endpoint = settingsManager.apiEndpoint,
+                model = settingsManager.apiModel,
+                targetLanguage = settingsManager.targetLanguage,
+                level = settingsManager.translationLevel
+            )
+        },
+        errorMessage = ::translationErrorMessage,
+        onTranslated = { key, result ->
+            if (key != NO_HISTORY_PAGE) historyManager.updateTranslation(key, result)
+            if ((_currentHistoryItemId.value ?: NO_HISTORY_PAGE) == key) _translatedText.value = result
+        }
+    )
+    val translatingPages: StateFlow<Set<String>> = translations.running
+    val translationErrors: StateFlow<Map<String, String>> = translations.errors
+
+    /** Id of the page on screen, the key for [translatingPages] / [translationErrors]. */
+    val currentPageKey: StateFlow<String?> = _currentHistoryItemId.asStateFlow()
+
+    fun translateCurrentPage(text: String) {
+        translations.start(_currentHistoryItemId.value ?: NO_HISTORY_PAGE, text)
+    }
+
+    private fun translationErrorMessage(e: Exception): String = when (e) {
+        is TranslationException -> when (e.errorCode) {
+            TranslationException.ErrorCode.NO_KEY -> context.getString(R.string.translation_error_no_key)
+            TranslationException.ErrorCode.TOO_LONG -> context.getString(R.string.translation_error_too_long)
+            TranslationException.ErrorCode.SERVER -> "${context.getString(R.string.translation_error_server)}: ${e.message}"
+            TranslationException.ErrorCode.INVALID_RESPONSE -> context.getString(R.string.translation_error_invalid)
+        }
+        else -> e.localizedMessage ?: context.getString(R.string.translation_error_server)
     }
 
     suspend fun rereadBoxes(boxes: List<Detection>): List<Detection> {
@@ -408,6 +447,9 @@ class AppState(
     }
 
     companion object {
+        /** Translation key for a page that has no history item (should not happen after OCR). */
+        const val NO_HISTORY_PAGE = ""
+
         private val MODEL_FILES = listOf(
             "rtmdet-s-1280x1280.onnx",
             "parseq-ndl-32x384-tiny-10.onnx",
