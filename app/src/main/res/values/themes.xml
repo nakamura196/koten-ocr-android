@@ -3,7 +3,7 @@
     <style name="Theme.KotenOCR" parent="android:Theme.Material.Light.NoActionBar" />
 
     <style name="Theme.KotenOCR.Splash" parent="Theme.SplashScreen">
-        <item name="windowSplashScreenBackground">#FFFFFFFF</item>
+        <item name="windowSplashScreenBackground">#FFF1E8D5</item>
         <item name="windowSplashScreenAnimatedIcon">@mipmap/ic_launcher</item>
         <item name="postSplashScreenTheme">@style/Theme.KotenOCR</item>
     </style>
