@@ -176,3 +176,5 @@ JAVA_HOME=/opt/homebrew/opt/openjdk@17/libexec/openjdk.jdk/Contents/Home ./gradl
 - 処理中画面の朱の線を、毎フレーム滑らかに進むよう修正（ProcessingScreen.kt）
 - 未確認: direct 版（R8 で縮小）での読み取り。紹介サイトへのリンク追加
 - 2026-11-02 テスター募集: Google グループ kotenocr-android-testers@googlegroups.com を作成（Play と同じ Google アカウント、Chrome の /u/2/。誰でも参加・投稿と参加者一覧は管理者のみ）。Play のクローズドテスト Alpha は現在メールのリスト「はじめてのメーリス」(16 人) で、オプトインは 3 人（本番には 12 人・14 日）。リストとグループはどちらか一方しか選べないため、切り替えは本人の判断待ち。その後、参加用リンクを取り、kotenocr.ldas.jp に Android 節（APK + テスター募集）を作る
+- 本人の決定（2026-11-02）: Play のテスターは Google グループに切り替え、メールのリストからはオプトイン済みの 3 人だけを移す。ただし Play Console には誰がオプトインしたかが出ないため、3 人のアドレスは本人に聞く。次の作業: 3 人をグループに招待 → Alpha のテスターを Google グループ（kotenocr-android-testers@googlegroups.com）に切り替え → 参加用リンクを控える → サイトに Android 節
+- 本人の要望: Play の掲載のロゴ（アイコン）や画像も、iOS の朱の「典」に合わせて新しくしたい（アプリ内の起動アイコンも同じ。未着手）
