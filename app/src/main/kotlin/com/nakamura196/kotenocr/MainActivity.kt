@@ -112,7 +112,7 @@ private fun KotenOCRApp(appState: AppState) {
             Screen.TRANSLATION_SETTINGS -> appState.navigateBackFromTranslationSettings()
             Screen.SETTINGS, Screen.HISTORY -> appState.closeModalScreen()
             Screen.CONFIRM_CROP -> appState.reCrop()
-            Screen.CROP -> appState.navigateToHome()
+            Screen.CROP -> appState.navigateToCamera()
             Screen.PROCESSING -> appState.cancelProcessing()
             Screen.RESULT -> appState.backFromResult()
             Screen.CAMERA -> appState.navigateToHome()
@@ -183,7 +183,7 @@ private fun KotenOCRApp(appState: AppState) {
                     onSkip = { rotatedSource ->
                         appState.onCropSkipped(rotatedSource)
                     },
-                    onCancel = { appState.navigateToHome() }
+                    onCancel = { appState.navigateToCamera() }
                 )
             }
         }

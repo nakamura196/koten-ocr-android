@@ -293,7 +293,8 @@ class AppState(
         ocrJob = null
         _scanRevealedDetections.value = emptyList()
         _scanRevealedCount.value = 0
-        _screen.value = Screen.HOME
+        // Same as iOS ContentView.cancelProcessing: back to the camera to take the page again.
+        navigateToCamera()
     }
 
     fun updateCurrentDetections(updatedDetections: List<Detection>, updatedText: String) {
