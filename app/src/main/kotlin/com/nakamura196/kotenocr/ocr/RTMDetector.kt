@@ -4,10 +4,6 @@ import ai.onnxruntime.OnnxTensor
 import ai.onnxruntime.OrtEnvironment
 import ai.onnxruntime.OrtSession
 import android.graphics.Bitmap
-import android.graphics.Canvas
-import android.graphics.Color
-import android.graphics.Paint
-import android.graphics.Rect
 import java.nio.FloatBuffer
 import kotlin.math.max
 
@@ -61,29 +57,9 @@ class RTMDetector(
     }
 
     private fun preprocess(bitmap: Bitmap): FloatArray {
-        val origW = bitmap.width
-        val origH = bitmap.height
-        val maxDim = max(origW, origH)
-
-        val padded = Bitmap.createBitmap(maxDim, maxDim, Bitmap.Config.ARGB_8888)
-        val canvas = Canvas(padded)
-        canvas.drawColor(Color.BLACK)
-        canvas.drawBitmap(bitmap, 0f, 0f, null)
-
-        val resized = Bitmap.createBitmap(inputWidth, inputHeight, Bitmap.Config.ARGB_8888)
-        val resizeCanvas = Canvas(resized)
-        val paint = Paint(Paint.FILTER_BITMAP_FLAG)
-        resizeCanvas.drawBitmap(
-            padded,
-            Rect(0, 0, maxDim, maxDim),
-            Rect(0, 0, inputWidth, inputHeight),
-            paint
-        )
-        padded.recycle()
-
-        val pixels = IntArray(inputWidth * inputHeight)
-        resized.getPixels(pixels, 0, inputWidth, 0, 0, inputWidth, inputHeight)
-        resized.recycle()
+        // Pad to a square at the top-left and shrink with an area average (see Resample).
+        require(inputWidth == inputHeight)
+        val pixels = Resample.paddedSquare(bitmap, inputWidth)
 
         val channelSize = inputWidth * inputHeight
         val floatData = FloatArray(3 * channelSize)
