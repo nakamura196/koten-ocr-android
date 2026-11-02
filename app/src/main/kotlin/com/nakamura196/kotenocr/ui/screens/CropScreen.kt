@@ -8,7 +8,8 @@ import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectDragGestures
-import androidx.compose.foundation.gestures.detectTransformGestures
+import androidx.compose.foundation.gestures.awaitEachGesture
+import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -39,6 +40,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
@@ -52,6 +54,7 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.ClipOp
+import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.StrokeCap
@@ -60,7 +63,14 @@ import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.drawscope.clipPath
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.input.pointer.PointerEventPass
+import androidx.compose.foundation.gestures.calculateCentroid
+import androidx.compose.foundation.gestures.calculatePan
+import androidx.compose.foundation.gestures.calculateZoom
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.input.pointer.positionChange
+import androidx.compose.ui.platform.LocalViewConfiguration
+import androidx.compose.ui.platform.ViewConfiguration
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.layout.onSizeChanged
@@ -97,6 +107,20 @@ private enum class RectHandle {
     MOVE, NONE
 }
 
+/** Which part of the crop box a touch at [pos] grabs (all values in the same coordinates). */
+private fun rectHandleAt(pos: Offset, left: Float, top: Float, right: Float, bottom: Float, hitR: Float): RectHandle = when {
+    hypot(pos.x - left, pos.y - top) <= hitR -> RectHandle.TOP_LEFT
+    hypot(pos.x - right, pos.y - top) <= hitR -> RectHandle.TOP_RIGHT
+    hypot(pos.x - left, pos.y - bottom) <= hitR -> RectHandle.BOTTOM_LEFT
+    hypot(pos.x - right, pos.y - bottom) <= hitR -> RectHandle.BOTTOM_RIGHT
+    abs(pos.y - top) <= hitR && pos.x in left..right -> RectHandle.TOP
+    abs(pos.y - bottom) <= hitR && pos.x in left..right -> RectHandle.BOTTOM
+    abs(pos.x - left) <= hitR && pos.y in top..bottom -> RectHandle.LEFT
+    abs(pos.x - right) <= hitR && pos.y in top..bottom -> RectHandle.RIGHT
+    pos.x in left..right && pos.y in top..bottom -> RectHandle.MOVE
+    else -> RectHandle.NONE
+}
+
 /**
  * Interactive Crop screen (`CropView.swift` + `QuadCropOverlay.swift` + `CropGeometry.swift` v2.1 port).
  * Supports:
@@ -104,7 +128,7 @@ private enum class RectHandle {
  * - 4-corner perspective crop (`4点補正`, [Quad] homography warp via [PerspectiveCrop.rectify])
  * - Automatic page corner detection & rectification (`自動補正` / `元に戻す`)
  * - 90° clockwise rotation (`回転` button with text label) preserved on Skip (`スキップ`) and Re-crop (`再切り取り`)
- * - Pinch-to-zoom + Reset Zoom button
+ * - Pinch-to-zoom (1x..8x, iOS parity) with a "2.3x" label + Reset Zoom button
  */
 @Composable
 fun CropScreen(
@@ -275,7 +299,7 @@ fun CropScreen(
                 )
 
                 Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                    if (zoomScale > 1.01f) {
+                    if (CropZoom.isZoomed(zoomScale)) {
                         KotenGlassButton(
                             onClick = ::resetZoom,
                             isCircle = true,
@@ -316,6 +340,9 @@ fun CropScreen(
                     .fillMaxWidth()
                     .padding(start = 12.dp, end = 12.dp, top = 10.dp)
                     .background(KotenColor.docBackground, RoundedCornerShape(6.dp))
+                    // Zoomed, the image would spill over the header and buttons; keep it inside the frame.
+                    // At 1x it stays unclipped so the corner dots are not cut at the frame edge.
+                    .then(if (CropZoom.isZoomed(zoomScale)) Modifier.clipToBounds() else Modifier)
                     .onSizeChanged { containerSize = it }
                     .pointerInput(showCornerCoach) {
                         if (!showCornerCoach) return@pointerInput
@@ -324,21 +351,59 @@ fun CropScreen(
                             dismissCornerCoach()
                         }
                     }
+                    // Zoom and pan (iOS `CropView`). Two fingers pinch and slide the image, zooming about
+                    // the fingers. One finger slides the zoomed image only when it lands outside the crop
+                    // box; on a dot, an edge or inside the box it is left to the box. (Before, the image
+                    // took every one-finger drag once zoomed, so the box could not be resized.)
+                    // Runs on the Initial pass so a drag taken here never also reaches the box.
                     .pointerInput(isQuadMode) {
-                        if (!isQuadMode) {
-                            detectTransformGestures { _, pan, zoom, _ ->
-                                if (zoom != 1f || zoomScale > 1.01f) {
-                                    val newScale = (zoomScale * zoom).coerceIn(1f, 5f)
-                                    zoomScale = newScale
-                                    if (newScale <= 1.01f) {
-                                        panOffset = Offset.Zero
-                                    } else {
-                                        val maxX = containerSize.width * (newScale - 1f) * 0.5f
-                                        val maxY = containerSize.height * (newScale - 1f) * 0.5f
-                                        panOffset = Offset(
-                                            (panOffset.x + pan.x).coerceIn(-maxX, maxX),
-                                            (panOffset.y + pan.y).coerceIn(-maxY, maxY)
-                                        )
+                        if (isQuadMode) return@pointerInput
+                        fun applyStep(zoom: Float, centroid: Offset, move: Offset) {
+                            val old = zoomScale
+                            val newScale = CropZoom.nextScale(old, zoom)
+                            zoomScale = newScale
+                            val w = containerSize.width.toFloat()
+                            val h = containerSize.height.toFloat()
+                            panOffset = if (!CropZoom.isZoomed(newScale)) Offset.Zero else Offset(
+                                CropZoom.clampPan(CropZoom.panAfterPinch(panOffset.x, centroid.x - w / 2f, move.x, old, newScale), w, newScale),
+                                CropZoom.clampPan(CropZoom.panAfterPinch(panOffset.y, centroid.y - h / 2f, move.y, old, newScale), h, newScale)
+                            )
+                        }
+                        fun landsOnCropBox(p: Offset): Boolean {
+                            val w = containerSize.width.toFloat()
+                            val h = containerSize.height.toFloat()
+                            val d = computeFittedRect(w, h, currentBitmap.width.toFloat(), currentBitmap.height.toFloat(), 0f)
+                            val (lx, ly) = CropZoom.toLocal(p.x - w / 2f, p.y - h / 2f, zoomScale, panOffset.x, panOffset.y)
+                            val local = Offset(lx + w / 2f, ly + h / 2f)
+                            return rectHandleAt(
+                                local,
+                                d.left + cropRect.left * d.width(), d.top + cropRect.top * d.height(),
+                                d.left + cropRect.right * d.width(), d.top + cropRect.bottom * d.height(),
+                                CropZoom.onScreen(32.dp.toPx(), zoomScale)
+                            ) != RectHandle.NONE
+                        }
+                        awaitEachGesture {
+                            val down = awaitFirstDown(requireUnconsumed = false, pass = PointerEventPass.Initial)
+                            var oneFingerPans = CropZoom.isZoomed(zoomScale) && !landsOnCropBox(down.position)
+                            var panning = false
+                            var travel = Offset.Zero
+                            while (true) {
+                                val event = awaitPointerEvent(PointerEventPass.Initial)
+                                val pressed = event.changes.filter { it.pressed }
+                                if (pressed.isEmpty()) break
+                                if (pressed.size >= 2) {
+                                    applyStep(event.calculateZoom(), event.calculateCentroid(useCurrent = false), event.calculatePan())
+                                    event.changes.forEach { it.consume() }
+                                    oneFingerPans = false
+                                } else if (oneFingerPans) {
+                                    val c = pressed[0]
+                                    if (!panning) {
+                                        travel += c.positionChange()
+                                        panning = travel.getDistance() > viewConfiguration.touchSlop
+                                    }
+                                    if (panning) {
+                                        applyStep(1f, c.position, c.positionChange())
+                                        c.consume()
                                     }
                                 }
                             }
@@ -366,6 +431,16 @@ fun CropScreen(
                             translationY = panOffset.y
                         }
                 ) {
+                  // Drags inside the zoomed layer are measured in its own (unscaled) pixels, so at 8x
+                  // a dot only started moving after 8 times the usual finger travel. Scale the start
+                  // threshold down so it begins after the same travel on screen at any zoom.
+                  val baseVc = LocalViewConfiguration.current
+                  val layerVc = remember(baseVc, zoomScale) {
+                      object : ViewConfiguration by baseVc {
+                          override val touchSlop: Float get() = CropZoom.onScreen(baseVc.touchSlop, zoomScale)
+                      }
+                  }
+                  CompositionLocalProvider(LocalViewConfiguration provides layerVc) {
                     Image(
                         bitmap = currentBitmap.asImageBitmap(),
                         contentDescription = null,
@@ -378,6 +453,7 @@ fun CropScreen(
                             QuadCropCanvas(
                                 quad = quad,
                                 displayRect = displayRect,
+                                zoom = zoomScale,
                                 isDetecting = isDetectingQuad,
                                 onQuadChanged = { newQuad ->
                                     if (showCornerCoach) {
@@ -391,6 +467,7 @@ fun CropScreen(
                             RectCropCanvas(
                                 cropRect = cropRect,
                                 displayRect = displayRect,
+                                zoom = zoomScale,
                                 onCropRectChanged = { newRect ->
                                     if (showCornerCoach) {
                                         settingsManager.markCoachMarkSeen(CoachMark.CROP_CORNER)
@@ -401,6 +478,22 @@ fun CropScreen(
                             )
                         }
                     }
+                  }
+                }
+
+                // Zoom level label at the top right, outside the zoomed layer (iOS `CropView`)
+                if (CropZoom.isZoomed(zoomScale)) {
+                    Text(
+                        text = CropZoom.label(zoomScale),
+                        fontSize = 11.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = Color.White,
+                        modifier = Modifier
+                            .align(Alignment.TopEnd)
+                            .padding(8.dp)
+                            .background(Color.Black.copy(alpha = 0.5f), RoundedCornerShape(10.dp))
+                            .padding(horizontal = 8.dp, vertical = 4.dp)
+                    )
                 }
 
                 // One-time corner coach mark (iOS: near the top-left corner, pointer up,
@@ -570,6 +663,7 @@ private fun ModeSegmentButton(
 private fun RectCropCanvas(
     cropRect: RectF,
     displayRect: RectF,
+    zoom: Float,
     onCropRectChanged: (RectF) -> Unit
 ) {
     val shuColor = Color(0xFFE0684C)
@@ -577,6 +671,7 @@ private fun RectCropCanvas(
     // pointerInput is keyed on displayRect only, so read the latest values through these.
     val latestRect by androidx.compose.runtime.rememberUpdatedState(cropRect)
     val latestOnChange by androidx.compose.runtime.rememberUpdatedState(onCropRectChanged)
+    val latestZoom by androidx.compose.runtime.rememberUpdatedState(zoom)
     var activeHandle by remember { mutableStateOf(RectHandle.NONE) }
     var dragStartRect by remember { mutableStateOf(RectF()) }
     var totalDrag by remember { mutableStateOf(Offset.Zero) }
@@ -598,26 +693,16 @@ private fun RectCropCanvas(
             .fillMaxSize()
             .then(exclusion)
             .pointerInput(displayRect) {
-                val hitR = 32.dp.toPx()
                 detectDragGestures(
                     onDragStart = { pos ->
+                        // Same reach on screen at any zoom (the canvas lives inside the zoomed layer).
+                        val hitR = CropZoom.onScreen(32.dp.toPx(), latestZoom)
                         val left = displayRect.left + latestRect.left * displayRect.width()
                         val top = displayRect.top + latestRect.top * displayRect.height()
                         val right = displayRect.left + latestRect.right * displayRect.width()
                         val bottom = displayRect.top + latestRect.bottom * displayRect.height()
 
-                        activeHandle = when {
-                            hypot(pos.x - left, pos.y - top) <= hitR -> RectHandle.TOP_LEFT
-                            hypot(pos.x - right, pos.y - top) <= hitR -> RectHandle.TOP_RIGHT
-                            hypot(pos.x - left, pos.y - bottom) <= hitR -> RectHandle.BOTTOM_LEFT
-                            hypot(pos.x - right, pos.y - bottom) <= hitR -> RectHandle.BOTTOM_RIGHT
-                            abs(pos.y - top) <= hitR && pos.x in left..right -> RectHandle.TOP
-                            abs(pos.y - bottom) <= hitR && pos.x in left..right -> RectHandle.BOTTOM
-                            abs(pos.x - left) <= hitR && pos.y in top..bottom -> RectHandle.LEFT
-                            abs(pos.x - right) <= hitR && pos.y in top..bottom -> RectHandle.RIGHT
-                            pos.x in left..right && pos.y in top..bottom -> RectHandle.MOVE
-                            else -> RectHandle.NONE
-                        }
+                        activeHandle = rectHandleAt(pos, left, top, right, bottom, hitR)
                         dragStartRect = RectF(latestRect)
                         totalDrag = Offset.Zero
                     },
@@ -683,6 +768,8 @@ private fun RectCropCanvas(
         val w = right - left
         val h = bottom - top
 
+        fun z(px: Float) = CropZoom.onScreen(px, zoom)
+
         // Dim area outside crop rect
         val holePath = Path().apply {
             addRect(Rect(left, top, right, bottom))
@@ -700,7 +787,7 @@ private fun RectCropCanvas(
             color = Color.White,
             topLeft = Offset(left, top),
             size = Size(w, h),
-            style = Stroke(width = 2.dp.toPx())
+            style = Stroke(width = z(2.dp.toPx()))
         )
 
         // Rule of thirds grid
@@ -711,13 +798,13 @@ private fun RectCropCanvas(
                 color = Color.White.copy(alpha = 0.32f),
                 start = Offset(gx, top),
                 end = Offset(gx, bottom),
-                strokeWidth = 0.8.dp.toPx()
+                strokeWidth = z(0.8.dp.toPx())
             )
             drawLine(
                 color = Color.White.copy(alpha = 0.32f),
                 start = Offset(left, gy),
                 end = Offset(right, gy),
-                strokeWidth = 0.8.dp.toPx()
+                strokeWidth = z(0.8.dp.toPx())
             )
         }
 
@@ -728,17 +815,17 @@ private fun RectCropCanvas(
             Offset(left, bottom),
             Offset(right, bottom)
         )
-        val r = 10.dp.toPx()
+        val r = z(10.dp.toPx())
         for (pt in corners) {
-            drawCircle(color = Color.Black.copy(alpha = 0.22f), radius = r + 2.dp.toPx(), center = pt + Offset(0f, 2.dp.toPx()))
+            drawCircle(color = Color.Black.copy(alpha = 0.22f), radius = r + z(2.dp.toPx()), center = pt + Offset(0f, z(2.dp.toPx())))
             drawCircle(color = shuFill, radius = r, center = pt)
-            drawCircle(color = Color.White, radius = r, center = pt, style = Stroke(width = 3.dp.toPx()))
+            drawCircle(color = Color.White, radius = r, center = pt, style = Stroke(width = z(3.dp.toPx())))
         }
 
         // Edge handles: white bars at the middle of each side (iOS `edgeHandle`, 44 x 14)
-        val longSide = 44.dp.toPx()
-        val shortSide = 14.dp.toPx()
-        val cr = androidx.compose.ui.geometry.CornerRadius(3.dp.toPx())
+        val longSide = z(44.dp.toPx())
+        val shortSide = z(14.dp.toPx())
+        val cr = androidx.compose.ui.geometry.CornerRadius(z(3.dp.toPx()))
         val midX = (left + right) / 2f
         val midY = (top + bottom) / 2f
         for ((c, horizontal) in listOf(
@@ -749,7 +836,7 @@ private fun RectCropCanvas(
             val bh = if (horizontal) shortSide else longSide
             drawRoundRect(
                 color = Color.Black.copy(alpha = 0.18f),
-                topLeft = Offset(c.x - bw / 2f, c.y - bh / 2f + 1.dp.toPx()),
+                topLeft = Offset(c.x - bw / 2f, c.y - bh / 2f + z(1.dp.toPx())),
                 size = Size(bw, bh), cornerRadius = cr
             )
             drawRoundRect(
@@ -765,6 +852,7 @@ private fun RectCropCanvas(
 private fun QuadCropCanvas(
     quad: Quad,
     displayRect: RectF,
+    zoom: Float,
     isDetecting: Boolean,
     onQuadChanged: (Quad) -> Unit
 ) {
@@ -772,6 +860,7 @@ private fun QuadCropCanvas(
     val shuFill = KotenColor.shuFill
     val latestQuad by androidx.compose.runtime.rememberUpdatedState(quad)
     val latestOnQuad by androidx.compose.runtime.rememberUpdatedState(onQuadChanged)
+    val latestZoom by androidx.compose.runtime.rememberUpdatedState(zoom)
     var activeCorner by remember { mutableStateOf(-1) }
     var dragStartCorner by remember { mutableStateOf(Offset.Zero) }
     var totalDrag by remember { mutableStateOf(Offset.Zero) }
@@ -787,9 +876,9 @@ private fun QuadCropCanvas(
                 .fillMaxSize()
                 .then(exclusion)
                 .pointerInput(displayRect) {
-                    val hitR = 40.dp.toPx()
                     detectDragGestures(
                         onDragStart = { pos ->
+                            val hitR = CropZoom.onScreen(40.dp.toPx(), latestZoom)
                             val pts = listOf(latestQuad.topLeft, latestQuad.topRight, latestQuad.bottomRight, latestQuad.bottomLeft)
                             var bestIdx = -1
                             var bestDist = hitR
@@ -830,6 +919,8 @@ private fun QuadCropCanvas(
                     )
                 }
         ) {
+            fun z(px: Float) = CropZoom.onScreen(px, zoom)
+
             fun viewPt(norm: Offset): Offset = Offset(
                 displayRect.left + norm.x * displayRect.width(),
                 displayRect.top + norm.y * displayRect.height()
@@ -866,29 +957,29 @@ private fun QuadCropCanvas(
                     color = Color.White.copy(alpha = 0.35f),
                     start = lerp(tl, tr, t),
                     end = lerp(bl, br, t),
-                    strokeWidth = 0.8.dp.toPx()
+                    strokeWidth = z(0.8.dp.toPx())
                 )
                 drawLine(
                     color = Color.White.copy(alpha = 0.35f),
                     start = lerp(tl, bl, t),
                     end = lerp(tr, br, t),
-                    strokeWidth = 0.8.dp.toPx()
+                    strokeWidth = z(0.8.dp.toPx())
                 )
             }
 
             drawPath(
                 path = polyPath,
                 color = if (quad.isConvex) shuColor else Color.Yellow,
-                style = Stroke(width = 2.5.dp.toPx(), join = StrokeJoin.Round)
+                style = Stroke(width = z(2.5.dp.toPx()), join = StrokeJoin.Round)
             )
 
             for (pt in listOf(tl, tr, br, bl)) {
-                drawCircle(color = shuFill, radius = 11.dp.toPx(), center = pt)
+                drawCircle(color = shuFill, radius = z(11.dp.toPx()), center = pt)
                 drawCircle(
                     color = Color.White,
-                    radius = 11.dp.toPx(),
+                    radius = z(11.dp.toPx()),
                     center = pt,
-                    style = Stroke(width = 2.5.dp.toPx())
+                    style = Stroke(width = z(2.5.dp.toPx()))
                 )
             }
         }
