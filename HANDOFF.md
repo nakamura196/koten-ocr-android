@@ -197,3 +197,10 @@ JAVA_HOME=/opt/homebrew/opt/openjdk@17/libexec/openjdk.jdk/Contents/Home ./gradl
 - ファビコンを `<link rel="icon" href="/favicon.ico?v=2.1">` で明示（古いキャッシュが残っていたため）
 - 次: 審査が通ったら、未参加の 2 つ目の Google アカウントで 3 手順を端末で通しで操作してもらい、adb screencap で 3 枚（グループに参加 / テスターになる / インストール）を撮って android.html の各手順の下に入れる。参加〜Play インストールの確認も兼ねる。告知文の下書きは scratchpad の tester-recruit-drafts.md（Bluesky 日英・身近な人向け）
 - 2026-11-02 時点で審査中（自動点検は終了）
+
+#### 2026-11-02 Play の掲載アイコン・フィーチャーグラフィックを「典」に
+- `store/make_play_graphics.py <iOS の AppIcon.png> <出力先>` で icon-512.png と feature-{ja,en}.png（1024×500）を作った。元は koten-ocr-ios の `KotenOCR/Assets.xcassets/AppIcon.appiconset/AppIcon.png`
+- Play Console のデフォルト掲載（共通のビジュアルアセット）にアイコンと feature-ja を入れ、**「未公開として保存」まで**。審査に送ると進行中の 2.1.0・テスター切替の審査がやり直しになるので、審査が通ってから「公開の概要」で送る
+- 残り: スマートフォンのスクリーンショットが Flutter 時代の古いもの（橙・青・紫）。ネイティブ版の画面を adb で撮って差し替える。英語の掲載に feature-en を当てるか確認
+- 告知文の下書き: `store/tester-recruit-drafts.md`
+- 審査の状況は Play Developer API では取れない（審査状態のエンドポイントが無い）ので、Chrome で公開の概要を見る
