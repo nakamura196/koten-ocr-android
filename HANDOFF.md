@@ -185,3 +185,9 @@ JAVA_HOME=/opt/homebrew/opt/openjdk@17/libexec/openjdk.jdk/Contents/Home ./gradl
 - 2026-11-02 に審査へ送信済み（公開の概要で「審査中」）。
 - 参加用リンク: ウェブ https://play.google.com/apps/testing/com.nakamura196.koten_ocr / Android https://play.google.com/store/apps/details?id=com.nakamura196.koten_ocr
 - 参加の手順: グループに参加 → ウェブのリンクで「テスターになる」→ Play からインストール。
+
+#### 2026-11-02 2.1.0 を Alpha へ・サイト公開
+- モデル（221MB）を install-time のアセットパック `model_pack/` に移した（Play の本体 200MB 上限対策。コードは `context.assets.open("models/...")` のまま）。debug と direct の APK は同じフォルダを普通の assets として取り込む。release は upload 鍵で署名。commit 1e500b8
+- AAB（約 248MB、ダウンロード約 223MB）は Chrome 拡張では 10MB 超を上げられないため、本人がドラッグで上げた。リリースノート日英を入れて 6 (2.1.0) を Alpha に。テスターのグループ切替と一緒に審査中（2026-11-02 送信）。警告はデバッグシンボル未アップロードの 1 件のみ
+- 紹介サイトに Android 版ページを公開: https://kotenocr.ldas.jp/android.html（英語 android-en.html）。koten-ocr-ios PR #13
+- 残り: 審査が通ったら自分の端末でテスト参加 → Play から入るか確認。テスター募集の告知（身近な人・Bluesky・ブログ、集まらなければ X）。ロゴ・掲載画像を iOS の朱の「典」に揃える
