@@ -6,6 +6,7 @@ import android.content.pm.PackageManager
 import android.graphics.Bitmap
 import android.net.Uri
 import android.provider.Settings
+import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.AnimatedVisibility
@@ -97,17 +98,25 @@ import org.json.JSONObject
  */
 @Composable
 fun OnboardingScreen(
-    onComplete: () -> Unit
+    onComplete: () -> Unit,
+    onCancel: (() -> Unit)? = null
 ) {
     val pagerState = rememberPagerState(pageCount = { 3 })
     val scope = rememberCoroutineScope()
     val context = LocalContext.current
 
-    var hasCameraPermission by remember {
-        mutableStateOf(
-            ContextCompat.checkSelfPermission(context, Manifest.permission.CAMERA) ==
-                PackageManager.PERMISSION_GRANTED
-        )
+    // Re-read on resume: granting the permission in the system Settings app
+    // and coming back must update page 2.
+    var hasCameraPermission by rememberCameraPermissionState()
+
+    // System back: previous page; on the first page, leave the replay (from
+    // Settings). On first run with no onCancel, the system default closes the app.
+    BackHandler(enabled = pagerState.currentPage > 0 || onCancel != null) {
+        if (pagerState.currentPage > 0) {
+            scope.launch { pagerState.animateScrollToPage(pagerState.currentPage - 1) }
+        } else {
+            onCancel?.invoke()
+        }
     }
     var permissionRequested by remember { mutableStateOf(false) }
     var introFinished by remember { mutableStateOf(false) }
