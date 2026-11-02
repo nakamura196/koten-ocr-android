@@ -175,3 +175,4 @@ JAVA_HOME=/opt/homebrew/opt/openjdk@17/libexec/openjdk.jdk/Contents/Home ./gradl
 - v2.1.0 を https://github.com/nakamura196/koten-ocr-android/releases/tag/v2.1.0 に公開（236MB）
 - 処理中画面の朱の線を、毎フレーム滑らかに進むよう修正（ProcessingScreen.kt）
 - 未確認: direct 版（R8 で縮小）での読み取り。紹介サイトへのリンク追加
+- 2026-11-02 テスター募集: Google グループ kotenocr-android-testers@googlegroups.com を作成（Play と同じ Google アカウント、Chrome の /u/2/。誰でも参加・投稿と参加者一覧は管理者のみ）。Play のクローズドテスト Alpha は現在メールのリスト「はじめてのメーリス」(16 人) で、オプトインは 3 人（本番には 12 人・14 日）。リストとグループはどちらか一方しか選べないため、切り替えは本人の判断待ち。その後、参加用リンクを取り、kotenocr.ldas.jp に Android 節（APK + テスター募集）を作る
