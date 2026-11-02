@@ -10,8 +10,8 @@
 local.properties
 
 # ONNX models (downloaded via setup.sh)
-app/src/main/assets/models/*.onnx
-app/src/main/assets/models/*.yaml
+model_pack/src/main/assets/models/*.onnx
+model_pack/src/main/assets/models/*.yaml
 
 # signing material (never commit)
 *.jks
@@ -22,3 +22,6 @@ keystore.properties
 
 # build outputs in any module (debug BuildConfig embeds the OpenRouter key)
 build/
+
+# Kotlin compiler session files
+.kotlin/

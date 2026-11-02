@@ -61,6 +61,8 @@ android {
             buildConfigField("String", "OPENROUTER_API_KEY", "\"\"")
             isMinifyEnabled = true
             isShrinkResources = true
+            // Play AAB is signed with the upload key; Play re-signs with the app signing key.
+            signingConfigs.findByName("upload")?.let { signingConfig = it }
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
@@ -78,6 +80,13 @@ android {
             ndk { abiFilters += listOf("arm64-v8a") }
         }
     }
+
+    // Models live in the install-time asset pack (Play AAB). Plain APK builds (debug, direct)
+    // don't include asset packs, so feed the same folder to them as ordinary assets.
+    assetPacks += listOf(":model_pack")
+    val packAssets = "${rootDir}/model_pack/src/main/assets"
+    sourceSets.getByName("debug").assets.srcDir(packAssets)
+    sourceSets.maybeCreate("direct").assets.srcDir(packAssets)
 
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_17

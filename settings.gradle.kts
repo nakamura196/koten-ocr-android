@@ -22,3 +22,4 @@ dependencyResolutionManagement {
 
 rootProject.name = "KotenOCR"
 include(":app")
+include(":model_pack")
