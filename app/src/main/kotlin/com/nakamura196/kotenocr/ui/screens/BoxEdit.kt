@@ -1,11 +1,8 @@
 package com.nakamura196.kotenocr.ui.screens
 
-import android.graphics.RectF
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
-import androidx.compose.foundation.gestures.detectDragGestures
-import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -41,12 +38,11 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.PathEffect
 import androidx.compose.ui.graphics.drawscope.Stroke
-import androidx.compose.ui.graphics.nativeCanvas
-import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -57,8 +53,6 @@ import com.nakamura196.kotenocr.ocr.Detection
 import com.nakamura196.kotenocr.ui.theme.KotenColor
 import com.nakamura196.kotenocr.ui.theme.KotenGlassButton
 import com.nakamura196.kotenocr.ui.theme.KotenProminentButton
-import kotlin.math.abs
-import kotlin.math.hypot
 import kotlin.math.max
 import kotlin.math.min
 import kotlin.math.roundToInt
@@ -74,18 +68,8 @@ enum class BoxEditTool {
 }
 
 /**
- * Corner handles on a selected detection box (`BoxEditGeometry.Corner`).
- */
-enum class BoxCorner {
-    TOP_LEFT,
-    TOP_RIGHT,
-    BOTTOM_LEFT,
-    BOTTOM_RIGHT
-}
-
-/**
- * Pure state machine and geometry helpers for the interactive Box Editor
- * (`BoxEditor.swift` + `BoxEditGeometry.swift` v2.1 port).
+ * State of the box editor (`BoxEditor.swift` + `BoxEditModel`). The geometry rules live in
+ * [BoxEditGeometry]; this class holds the boxes, the selection, the tool and the undo stack.
  */
 class BoxEditorState(
     initialDetections: List<Detection>,
@@ -104,6 +88,16 @@ class BoxEditorState(
     var pendingIndices by mutableStateOf<Set<Int>>(emptySet())
         private set
 
+    /** A box shown at a temporary position while a finger drags it ([index] null = a box being drawn). */
+    data class Preview(val index: Int?, val rect: Rect)
+
+    /**
+     * The box under the finger. Only the edit canvas reads it, in its draw phase, so a finger move
+     * redraws the boxes and nothing else; [detections] changes once, when the finger lifts
+     * (iOS kept this in the screen's model and rebuilt the whole screen on every move).
+     */
+    var preview by mutableStateOf<Preview?>(null)
+
     private data class Snapshot(
         val detections: List<Detection>,
         val selectedIndex: Int?,
@@ -120,6 +114,14 @@ class BoxEditorState(
 
     val hasPending: Boolean
         get() = pendingIndices.isNotEmpty()
+
+    /** The whole image, in image pixels. */
+    val bounds: Rect
+        get() = Rect(0f, 0f, imageWidth.toFloat(), imageHeight.toFloat())
+
+    /** Box of every line, in image pixels. */
+    val rects: List<Rect>
+        get() = detections.map { boxRect(it.box) }
 
     private fun pushUndo() {
         undoStack.add(
@@ -144,6 +146,7 @@ class BoxEditorState(
 
     fun undo() {
         val last = undoStack.removeLastOrNull() ?: return
+        preview = null
         detections = last.detections
         selectedIndex = last.selectedIndex
         pendingIndices = last.pendingIndices
@@ -166,48 +169,15 @@ class BoxEditorState(
         selectedIndex = null
     }
 
-    fun beginGestureEdit() {
+    /** Commits a moved or resized box (one undo step per drag). */
+    fun setRect(index: Int, rect: Rect) {
+        if (index !in detections.indices) return
+        if (boxRect(detections[index].box) == rect) return
         pushUndo()
+        updateBox(index, rect)
     }
 
-    fun moveBox(index: Int, startRect: RectF, dx: Float, dy: Float) {
-        if (index !in detections.indices) return
-        val w = startRect.width()
-        val h = startRect.height()
-        val nl = (startRect.left + dx).coerceIn(0f, max(0f, imageWidth - w))
-        val nt = (startRect.top + dy).coerceIn(0f, max(0f, imageHeight - h))
-        val nr = RectF(nl, nt, nl + w, nt + h)
-        updateBox(index, nr)
-    }
-
-    fun resizeBox(index: Int, startRect: RectF, corner: BoxCorner, point: Offset) {
-        if (index !in detections.indices) return
-        val minSize = 12f
-        val px = point.x.coerceIn(0f, imageWidth.toFloat())
-        val py = point.y.coerceIn(0f, imageHeight.toFloat())
-        val nr = RectF(startRect)
-        when (corner) {
-            BoxCorner.TOP_LEFT -> {
-                nr.left = min(px, startRect.right - minSize)
-                nr.top = min(py, startRect.bottom - minSize)
-            }
-            BoxCorner.TOP_RIGHT -> {
-                nr.right = max(px, startRect.left + minSize)
-                nr.top = min(py, startRect.bottom - minSize)
-            }
-            BoxCorner.BOTTOM_LEFT -> {
-                nr.left = min(px, startRect.right - minSize)
-                nr.bottom = max(py, startRect.top + minSize)
-            }
-            BoxCorner.BOTTOM_RIGHT -> {
-                nr.right = max(px, startRect.left + minSize)
-                nr.bottom = max(py, startRect.top + minSize)
-            }
-        }
-        updateBox(index, nr)
-    }
-
-    private fun updateBox(index: Int, rect: RectF) {
+    private fun updateBox(index: Int, rect: Rect) {
         val box = intArrayOf(
             rect.left.roundToInt().coerceIn(0, imageWidth),
             rect.top.roundToInt().coerceIn(0, imageHeight),
@@ -249,9 +219,9 @@ class BoxEditorState(
     fun splitAt(point: Offset) {
         val idx = hitBox(point) ?: return
         val det = detections[idx]
-        val r = det.rect
+        val r = boxRect(det.box)
         val minPart = 12f
-        val isVertical = r.height() >= r.width()
+        val isVertical = r.height >= r.width
         val firstBox: IntArray
         val secondBox: IntArray
         if (isVertical) {
@@ -321,278 +291,191 @@ class BoxEditorState(
         pendingIndices = emptySet()
     }
 
-    fun hitBox(point: Offset): Int? {
-        var bestIdx: Int? = null
-        var bestArea = Float.MAX_VALUE
-        for ((idx, det) in detections.withIndex()) {
-            val r = det.rect
-            if (point.x in r.left..r.right && point.y in r.top..r.bottom) {
-                val area = r.width() * r.height()
-                if (area < bestArea) {
-                    bestArea = area
-                    bestIdx = idx
-                }
-            }
-        }
-        return bestIdx
-    }
-
-    fun hitCorner(point: Offset, hitRadius: Float): Pair<Int, BoxCorner>? {
-        val idx = selectedIndex ?: return null
-        if (idx !in detections.indices) return null
-        val r = detections[idx].rect
-        val corners = listOf(
-            BoxCorner.TOP_LEFT to Offset(r.left, r.top),
-            BoxCorner.TOP_RIGHT to Offset(r.right, r.top),
-            BoxCorner.BOTTOM_LEFT to Offset(r.left, r.bottom),
-            BoxCorner.BOTTOM_RIGHT to Offset(r.right, r.bottom)
-        )
-        var bestCorner: BoxCorner? = null
-        var bestDist = hitRadius
-        for ((corner, pt) in corners) {
-            val d = hypot(point.x - pt.x, point.y - pt.y)
-            if (d <= bestDist) {
-                bestDist = d
-                bestCorner = corner
-            }
-        }
-        return bestCorner?.let { idx to it }
-    }
+    /** The smallest box under an image point, or null. */
+    fun hitBox(point: Offset): Int? = BoxEditGeometry.hitBox(point, rects)
 
     private fun reindex(list: List<Detection>): List<Detection> =
         list.mapIndexed { i, d -> d.copy(id = i) }
+
+    companion object {
+        fun boxRect(box: IntArray): Rect =
+            if (box.size >= 4) Rect(box[0].toFloat(), box[1].toFloat(), box[2].toFloat(), box[3].toFloat()) else Rect.Zero
+    }
 }
 
 /**
- * Interactive Box Edit overlay canvas (`BoxEditCanvas` in `BoxEditView.swift`).
+ * Turns one-finger touches into edits (`BoxEditGestureLayer` in iOS). Every drag applies the
+ * translation since the finger landed to the box as it was then, so a box never runs ahead of or
+ * behind the finger. Only the selected box moves or resizes; touching another box selects it when
+ * the finger lifts.
  */
-@Composable
-fun BoxEditCanvas(
-    editor: BoxEditorState,
-    displayRect: RectF,
-    modifier: Modifier = Modifier
-) {
-    val shuColor = KotenColor.shu
-    val shuFill = KotenColor.shuFill
-    var dragPreviewRect by remember { mutableStateOf<RectF?>(null) }
-
-    fun toImagePoint(viewOffset: Offset): Offset {
-        val sx = editor.imageWidth.toFloat() / displayRect.width().coerceAtLeast(1f)
-        val sy = editor.imageHeight.toFloat() / displayRect.height().coerceAtLeast(1f)
-        return Offset(
-            (viewOffset.x - displayRect.left) * sx,
-            (viewOffset.y - displayRect.top) * sy
-        )
+class BoxEditTouch(
+    private val editor: BoxEditorState,
+    private val stage: () -> PageStage,
+    private val zoom: () -> PageZoom.State,
+    private val onZoom: (PageZoom.State) -> Unit,
+    private val grips: BoxEditGeometry.Grips
+) : PageTouch {
+    private sealed interface Kind {
+        data class Move(val index: Int, val start: Rect) : Kind
+        data class Resize(val index: Int, val handle: BoxHandle, val start: Rect) : Kind
+        data class Draw(val origin: Offset) : Kind
+        /** Pans when zoomed; a touch that does not move selects the box under it. */
+        data class Pan(val start: PageZoom.State) : Kind
+        data object Tap : Kind
     }
 
-    Canvas(
-        modifier = modifier
-            .fillMaxSize()
-            .pointerInput(editor.tool, displayRect) {
-                detectTapGestures { pos ->
-                    val imgPt = toImagePoint(pos)
-                    when (editor.tool) {
-                        BoxEditTool.SELECT -> {
-                            editor.select(editor.hitBox(imgPt))
-                        }
-                        BoxEditTool.SPLIT -> {
-                            editor.splitAt(imgPt)
-                        }
-                        BoxEditTool.MERGE -> {
-                            editor.tapInMergeMode(imgPt)
-                        }
-                        BoxEditTool.ADD -> Unit
-                    }
+    private var kind: Kind? = null
+    private var startPoint = Offset.Zero
+    /** The selection before the last tap: a double tap zooms, so its first tap must not change it. */
+    private var beforeLastTap: Int? = null
+
+    override fun begin(at: Offset) {
+        val st = stage()
+        startPoint = st.toImage(at)
+        val rects = editor.rects
+        kind = when (editor.tool) {
+            BoxEditTool.ADD -> Kind.Draw(startPoint)
+            BoxEditTool.SPLIT, BoxEditTool.MERGE -> Kind.Tap
+            BoxEditTool.SELECT -> when (val g = BoxEditGeometry.grab(at, st, rects, editor.selectedIndex, grips)) {
+                is BoxEditGeometry.Grab.Resize -> Kind.Resize(g.index, g.handle, rects[g.index])
+                is BoxEditGeometry.Grab.Move -> Kind.Move(g.index, rects[g.index])
+                BoxEditGeometry.Grab.PanOrSelect -> Kind.Pan(zoom())
+            }
+        }
+    }
+
+    override fun drag(at: Offset, translation: Offset) {
+        val st = stage()
+        val px = translation * st.pixelsPerScreenPixel
+        when (val k = kind) {
+            is Kind.Move -> editor.preview = BoxEditorState.Preview(k.index, BoxEditGeometry.moved(k.start, px, editor.bounds))
+            is Kind.Resize -> editor.preview = BoxEditorState.Preview(k.index, BoxEditGeometry.resized(k.start, k.handle, px, editor.bounds))
+            is Kind.Draw -> {
+                val end = st.toImage(at)
+                val raw = Rect(min(k.origin.x, end.x), min(k.origin.y, end.y), max(k.origin.x, end.x), max(k.origin.y, end.y))
+                    .intersect(editor.bounds)
+                editor.preview = if (raw.width > 0f && raw.height > 0f) BoxEditorState.Preview(null, raw) else null
+            }
+            is Kind.Pan -> if (k.start.zoom > PageZoom.MIN) onZoom(PageZoom.panned(k.start, translation, st.containerSize))
+            Kind.Tap, null -> Unit
+        }
+    }
+
+    override fun end(at: Offset, moved: Boolean) {
+        val k = kind
+        val p = editor.preview
+        kind = null
+        editor.preview = null
+        if (!moved) beforeLastTap = editor.selectedIndex
+        when (k) {
+            is Kind.Move, is Kind.Resize -> {
+                val index = if (k is Kind.Move) k.index else (k as Kind.Resize).index
+                if (moved && p != null && p.index == index) {
+                    editor.setRect(index, p.rect)
+                } else if (!moved) {
+                    // A grip reaches a little outside the selected box: a tap there means "choose the
+                    // neighbour", not "resize". A tap inside the selected box keeps it selected.
+                    val sel = editor.selectedIndex
+                    val inside = sel != null && sel in editor.detections.indices &&
+                        BoxEditorState.boxRect(editor.detections[sel].box).contains(startPoint)
+                    if (!inside) editor.select(editor.hitBox(startPoint))
                 }
             }
-            .pointerInput(editor.tool, displayRect) {
-                var dragMode = 0 // 0=none, 1=move, 2=resize, 3=add
-                var activeIndex = -1
-                var activeCorner = BoxCorner.TOP_LEFT
-                var startRect = RectF()
-                var addStart = Offset.Zero
-                var accumImgDelta = Offset.Zero
-
-                detectDragGestures(
-                    onDragStart = { pos ->
-                        val sx = editor.imageWidth.toFloat() / displayRect.width().coerceAtLeast(1f)
-                        val imgPt = toImagePoint(pos)
-                        val hitR = 26.dp.toPx() * sx
-
-                        when (editor.tool) {
-                            BoxEditTool.ADD -> {
-                                dragMode = 3
-                                addStart = imgPt
-                                dragPreviewRect = RectF(imgPt.x, imgPt.y, imgPt.x, imgPt.y)
-                            }
-                            BoxEditTool.SELECT -> {
-                                val cornerHit = editor.hitCorner(imgPt, hitR)
-                                if (cornerHit != null) {
-                                    dragMode = 2
-                                    activeIndex = cornerHit.first
-                                    activeCorner = cornerHit.second
-                                    startRect = RectF(editor.detections[activeIndex].rect)
-                                    accumImgDelta = Offset.Zero
-                                    editor.beginGestureEdit()
-                                } else {
-                                    val boxIdx = editor.hitBox(imgPt)
-                                    if (boxIdx != null) {
-                                        editor.select(boxIdx)
-                                        dragMode = 1
-                                        activeIndex = boxIdx
-                                        startRect = RectF(editor.detections[boxIdx].rect)
-                                        accumImgDelta = Offset.Zero
-                                        editor.beginGestureEdit()
-                                    } else {
-                                        dragMode = 0
-                                    }
-                                }
-                            }
-                            else -> {
-                                dragMode = 0
-                            }
-                        }
-                    },
-                    onDrag = { change, dragAmount ->
-                        change.consume()
-                        val sx = editor.imageWidth.toFloat() / displayRect.width().coerceAtLeast(1f)
-                        val sy = editor.imageHeight.toFloat() / displayRect.height().coerceAtLeast(1f)
-                        accumImgDelta += Offset(dragAmount.x * sx, dragAmount.y * sy)
-                        val curImgPt = toImagePoint(change.position)
-
-                        when (dragMode) {
-                            1 -> {
-                                editor.moveBox(
-                                    index = activeIndex,
-                                    startRect = startRect,
-                                    dx = accumImgDelta.x,
-                                    dy = accumImgDelta.y
-                                )
-                            }
-                            2 -> {
-                                editor.resizeBox(
-                                    index = activeIndex,
-                                    startRect = startRect,
-                                    corner = activeCorner,
-                                    point = curImgPt
-                                )
-                            }
-                            3 -> {
-                                dragPreviewRect = RectF(
-                                    min(addStart.x, curImgPt.x),
-                                    min(addStart.y, curImgPt.y),
-                                    max(addStart.x, curImgPt.x),
-                                    max(addStart.y, curImgPt.y)
-                                )
-                            }
-                        }
-                    },
-                    onDragEnd = {
-                        if (dragMode == 3) {
-                            val r = dragPreviewRect
-                            if (r != null) {
-                                editor.addBox(Offset(r.left, r.top), Offset(r.right, r.bottom))
-                            }
-                            dragPreviewRect = null
-                        }
-                        dragMode = 0
-                    },
-                    onDragCancel = {
-                        dragPreviewRect = null
-                        dragMode = 0
-                    }
-                )
+            is Kind.Draw -> if (moved) {
+                BoxEditGeometry.drawn(k.origin, stage().toImage(at), editor.bounds)?.let {
+                    editor.addBox(it.topLeft, it.bottomRight)
+                }
             }
-    ) {
-        val sx = displayRect.width() / editor.imageWidth.toFloat().coerceAtLeast(1f)
-        val sy = displayRect.height() / editor.imageHeight.toFloat().coerceAtLeast(1f)
-        val dashEffect = PathEffect.dashPathEffect(floatArrayOf(12f, 8f), 0f)
-
-        val numPaint = android.graphics.Paint().apply {
-            color = android.graphics.Color.WHITE
-            textSize = 10.dp.toPx()
-            isFakeBoldText = true
-            isAntiAlias = true
-            textAlign = android.graphics.Paint.Align.CENTER
+            is Kind.Pan -> if (!moved) editor.select(editor.hitBox(startPoint))
+            Kind.Tap -> if (!moved) {
+                when (editor.tool) {
+                    BoxEditTool.SPLIT -> if (editor.hitBox(startPoint) != null) editor.splitAt(startPoint) else editor.select(null)
+                    BoxEditTool.MERGE -> editor.tapInMergeMode(startPoint)
+                    else -> editor.select(editor.hitBox(startPoint))
+                }
+            }
+            null -> Unit
         }
+    }
 
-        editor.detections.forEachIndexed { idx, det ->
-            val r = det.rect
-            val left = displayRect.left + r.left * sx
-            val top = displayRect.top + r.top * sy
-            val w = r.width() * sx
-            val h = r.height() * sy
-            val isSelected = editor.selectedIndex == idx
-            val isPending = idx in editor.pendingIndices
+    override fun cancel() {
+        kind = null
+        editor.preview = null
+    }
 
-            drawRoundRect(
-                color = shuFill.copy(alpha = if (isSelected) 0.28f else 0.12f),
-                topLeft = Offset(left, top),
-                size = Size(w, h),
-                cornerRadius = CornerRadius(2.dp.toPx())
+    override fun doubleTap(at: Offset) {
+        if (editor.tool == BoxEditTool.SELECT) editor.select(beforeLastTap)
+    }
+}
+
+/**
+ * Draws the boxes being edited (`BoxEditCanvasDrawing` in iOS): each line in its palette colour,
+ * the selected one over a white under-stroke with grips on its sides and corners. Put it inside the
+ * zoomed layer; [zoom] divides the strokes and grips so they keep their size on screen.
+ */
+@Composable
+fun BoxEditDrawing(
+    editor: BoxEditorState,
+    fit: Rect,
+    zoom: () -> Float,
+    modifier: Modifier = Modifier
+) {
+    Canvas(modifier = modifier.fillMaxSize()) {
+        if (editor.imageWidth <= 0) return@Canvas
+        val s = fit.width / editor.imageWidth
+        val z = max(zoom(), 0.01f)
+        val preview = editor.preview
+        val dets = editor.detections
+        val selected = editor.selectedIndex
+        val showGrips = editor.tool == BoxEditTool.SELECT
+        fun screen(r: Rect) = Rect(fit.left + r.left * s, fit.top + r.top * s, fit.left + r.right * s, fit.top + r.bottom * s)
+        fun rectOf(i: Int): Rect =
+            if (preview != null && preview.index == i) preview.rect else BoxEditorState.boxRect(dets[i].box)
+        val dash = PathEffect.dashPathEffect(floatArrayOf(6.dp.toPx() / z, 3.dp.toPx() / z), 0f)
+
+        for (i in dets.indices) {
+            if (i == selected) continue
+            val r = screen(rectOf(i))
+            val color = KotenColor.box(i)
+            val pending = i in editor.pendingIndices
+            drawRect(color.copy(alpha = if (pending) 0.16f else 0.06f), r.topLeft, r.size)
+            drawRect(
+                color.copy(alpha = 0.9f), r.topLeft, r.size,
+                style = Stroke(width = 1.5.dp.toPx() / z, pathEffect = if (pending) dash else null)
             )
-            drawRoundRect(
-                color = shuColor,
-                topLeft = Offset(left, top),
-                size = Size(w, h),
-                cornerRadius = CornerRadius(2.dp.toPx()),
-                style = Stroke(
-                    width = (if (isSelected) 2.5.dp else 1.5.dp).toPx(),
-                    pathEffect = if (isPending) dashEffect else null
-                )
-            )
-
-            // Number badge at top-left of box
-            val badgeR = 9.dp.toPx()
-            val bx = left + badgeR
-            val by = (top - badgeR - 2.dp.toPx()).coerceAtLeast(displayRect.top + badgeR)
-            drawCircle(color = shuFill, radius = badgeR, center = Offset(bx, by))
-            drawContext.canvas.nativeCanvas.drawText(
-                "${idx + 1}",
-                bx,
-                by + 3.5.dp.toPx(),
-                numPaint
-            )
-
-            // 4 corner handles when selected in SELECT mode
-            if (isSelected && editor.tool == BoxEditTool.SELECT) {
-                val handlePts = listOf(
-                    Offset(left, top),
-                    Offset(left + w, top),
-                    Offset(left, top + h),
-                    Offset(left + w, top + h)
-                )
-                for (pt in handlePts) {
-                    drawCircle(color = shuFill, radius = 7.dp.toPx(), center = pt)
-                    drawCircle(
-                        color = Color.White,
-                        radius = 7.dp.toPx(),
-                        center = pt,
-                        style = Stroke(width = 2.dp.toPx())
-                    )
+        }
+        if (selected != null && selected in dets.indices) {
+            val r = screen(rectOf(selected))
+            val color = KotenColor.box(selected)
+            drawRect(color.copy(alpha = 0.22f), r.topLeft, r.size)
+            // White under-stroke keeps the selected edge visible on dark ink and on a same-colour neighbour.
+            drawRect(Color.White.copy(alpha = 0.9f), r.topLeft, r.size, style = Stroke(width = 5.dp.toPx() / z))
+            drawRect(color, r.topLeft, r.size, style = Stroke(width = 3.dp.toPx() / z))
+            if (showGrips) {
+                val long = 22.dp.toPx() / z
+                val short = 7.dp.toPx() / z
+                for (h in BoxHandle.sides) {
+                    val p = BoxEditGeometry.point(h, r)
+                    val horizontal = h == BoxHandle.TOP || h == BoxHandle.BOTTOM
+                    val size = if (horizontal) Size(long, short) else Size(short, long)
+                    val tl = Offset(p.x - size.width / 2f, p.y - size.height / 2f)
+                    drawRoundRect(color, tl, size, CornerRadius(short / 2f))
+                    drawRoundRect(Color.White, tl, size, CornerRadius(short / 2f), style = Stroke(width = 1.5.dp.toPx() / z))
+                }
+                val radius = 8.dp.toPx() / z
+                for (h in BoxHandle.corners) {
+                    val p = BoxEditGeometry.point(h, r)
+                    drawCircle(color, radius, p)
+                    drawCircle(Color.White, radius, p, style = Stroke(width = 2.dp.toPx() / z))
                 }
             }
         }
-
-        // Preview rectangle while dragging in ADD mode
-        dragPreviewRect?.let { pr ->
-            val left = displayRect.left + pr.left * sx
-            val top = displayRect.top + pr.top * sy
-            val w = pr.width() * sx
-            val h = pr.height() * sy
-            drawRoundRect(
-                color = shuFill.copy(alpha = 0.22f),
-                topLeft = Offset(left, top),
-                size = Size(w, h),
-                cornerRadius = CornerRadius(2.dp.toPx())
-            )
-            drawRoundRect(
-                color = shuColor,
-                topLeft = Offset(left, top),
-                size = Size(w, h),
-                cornerRadius = CornerRadius(2.dp.toPx()),
-                style = Stroke(width = 2.dp.toPx(), pathEffect = dashEffect)
-            )
+        if (preview != null && preview.index == null) {
+            val r = screen(preview.rect)
+            val color = KotenColor.box(dets.size)
+            drawRect(color.copy(alpha = 0.2f), r.topLeft, r.size)
+            drawRect(color, r.topLeft, r.size, style = Stroke(width = 2.dp.toPx() / z, pathEffect = dash))
         }
     }
 }

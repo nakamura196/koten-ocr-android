@@ -146,7 +146,7 @@
     <string name="box_tool_add">追加</string>
     <string name="box_tool_split">分割</string>
     <string name="box_tool_merge">結合</string>
-    <string name="box_hint_select">枠をタップして選び、ドラッグで動かす。角で大きさを変える</string>
+    <string name="box_hint_select">枠をタップして選ぶ。辺や角を引いて大きさを、中を引いて位置を変える</string>
     <string name="box_hint_add">画像をなぞって、新しい枠を描く</string>
     <string name="box_hint_split">分けたい位置をタップ</string>
     <string name="box_hint_merge">1つ選んでから、つなげる枠をタップ</string>

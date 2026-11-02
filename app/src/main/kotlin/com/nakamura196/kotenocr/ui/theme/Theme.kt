@@ -95,6 +95,20 @@ object KotenColor {
     val docBackground: Color
         @Composable
         get() = LocalKotenColors.current.docBackground
+
+    /**
+     * Line-box colours (朱・藍・萌黄・江戸紫), the same in both themes (`KotenColor.boxPalette` in
+     * iOS). Neighbouring lines get different colours so their edges can be told apart.
+     */
+    val boxPalette: List<Color> = listOf(
+        Color(0.86f, 0.27f, 0.16f),
+        Color(0.13f, 0.38f, 0.75f),
+        Color(0.16f, 0.56f, 0.27f),
+        Color(0.55f, 0.27f, 0.62f)
+    )
+
+    /** Colour of the line at [index] in reading order. */
+    fun box(index: Int): Color = boxPalette[Math.floorMod(index, boxPalette.size)]
 }
 
 private val LightColorScheme = lightColorScheme(
