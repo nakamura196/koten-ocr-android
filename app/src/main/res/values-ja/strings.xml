@@ -219,7 +219,7 @@
     <string name="translation_error_local_no_space">AIのモデルをダウンロードする空き容量がありません。</string>
     <string name="translation_open_settings">設定を開く</string>
     <string name="translation_empty">現代語訳がまだありません</string>
-    <string name="tab_ocr">OCR結果</string>
+    <string name="tab_ocr">読み取り</string>
     <string name="tab_translation">現代語訳</string>
 
     <!-- Crop -->
@@ -247,4 +247,12 @@
     <string name="ocr_mode_ndl_short">活字・手書き</string>
     <string name="run_ocr_koten">古典籍 OCR</string>
     <string name="run_ocr_ndl">近代 OCR</string>
+    <!-- Result screen layout (iOS 2.1.2) -->
+    <string name="boxes_show">枠を表示</string>
+    <string name="confidence_menu">確信度…</string>
+    <string name="confidence_menu_hidden">確信度（%1$d 行を隠し中）</string>
+    <string name="result_more">その他</string>
+    <string name="box_edit_prev">前の行</string>
+    <string name="box_edit_next">次の行</string>
+    <string name="box_edit_line_total">%1$d 行。枠をタップするか ‹ › で選びます</string>
 </resources>

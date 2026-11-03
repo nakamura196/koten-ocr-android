@@ -219,7 +219,7 @@
     <string name="translation_error_local_no_space">Not enough storage to download the AI model.</string>
     <string name="translation_open_settings">Open Settings</string>
     <string name="translation_empty">No translation yet</string>
-    <string name="tab_ocr">OCR Result</string>
+    <string name="tab_ocr">Text</string>
     <string name="tab_translation">Translation</string>
 
     <!-- Crop -->
@@ -247,4 +247,12 @@
     <string name="ocr_mode_ndl_short">Printed / Handwritten</string>
     <string name="run_ocr_koten">Classical OCR</string>
     <string name="run_ocr_ndl">Modern OCR</string>
+    <!-- Result screen layout (iOS 2.1.2) -->
+    <string name="boxes_show">Show Boxes</string>
+    <string name="confidence_menu">Confidence…</string>
+    <string name="confidence_menu_hidden">Confidence (%1$d lines hidden)</string>
+    <string name="result_more">More</string>
+    <string name="box_edit_prev">Previous line</string>
+    <string name="box_edit_next">Next line</string>
+    <string name="box_edit_line_total">%1$d lines. Tap a box or use ‹ › to choose</string>
 </resources>
