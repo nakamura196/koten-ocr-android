@@ -154,6 +154,16 @@ object BoxEditGeometry {
         return r
     }
 
+    /**
+     * The line chosen by ‹ (step -1) or › (step +1) in the editor: wraps round at either end, and
+     * with nothing chosen yet › starts at the first line and ‹ at the last. Null when there are no lines.
+     */
+    fun stepSelection(current: Int?, step: Int, count: Int): Int? {
+        if (count <= 0) return null
+        if (current == null || current !in 0 until count) return if (step > 0) 0 else count - 1
+        return ((current + step) % count + count) % count
+    }
+
     private fun Rect.containsInclusive(p: Offset) = p.x in left..right && p.y in top..bottom
 }
 

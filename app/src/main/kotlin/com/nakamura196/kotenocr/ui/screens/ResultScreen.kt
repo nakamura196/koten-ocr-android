@@ -4,6 +4,18 @@ import com.nakamura196.kotenocr.ui.theme.kotenMount
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.ui.draw.shadow
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material.icons.filled.ChevronRight
+import androidx.compose.material.icons.filled.MoreHoriz
+import androidx.compose.material.icons.filled.Tune
+import androidx.compose.material3.ModalBottomSheet
+import androidx.compose.material3.Switch
+import androidx.compose.material3.SwitchDefaults
+import androidx.compose.material3.rememberModalBottomSheetState
+import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.text.SpanStyle
+import androidx.compose.ui.text.buildAnnotatedString
+import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.text.withStyle
 import androidx.compose.material.icons.filled.AutoAwesome
 import androidx.compose.material.icons.filled.PictureAsPdf
 import androidx.compose.material.icons.filled.Description
@@ -144,7 +156,7 @@ import kotlin.math.min
  * - Modern Japanese / English translation tab (`TranslationService`)
  * - Friendly No-Lines 3-tip guide when 0 lines are found
  */
-@OptIn(ExperimentalFoundationApi::class)
+@OptIn(ExperimentalFoundationApi::class, ExperimentalMaterial3Api::class)
 @Composable
 fun ResultScreen(
     bitmap: Bitmap,
@@ -181,7 +193,8 @@ fun ResultScreen(
 
     var showBoxes by remember { mutableStateOf(true) }
     var selectedOriginalIndex by remember { mutableStateOf<Int?>(null) }
-    var showShareMenu by remember { mutableStateOf(false) }
+    var showMoreMenu by remember { mutableStateOf(false) }
+    var showConfidence by remember { mutableStateOf(false) }
     var showCopiedToast by remember { mutableStateOf(false) }
 
     // Line / full text editing dialog state
@@ -449,6 +462,7 @@ fun ResultScreen(
                             .weight(0.58f)
                     )
                 } else if (currentEditor != null) {
+                    SelectedLineBar(editor = currentEditor, enabled = !isRereadingBoxes)
                     BoxEditControls(
                         editor = currentEditor,
                         isRereading = isRereadingBoxes,
@@ -469,83 +483,133 @@ fun ResultScreen(
                             .fillMaxWidth()
                             .weight(0.60f)
                     ) {
-                        // Controls under the image (iOS): 枠 / 枠を直す ... share
+                        // The one row that stays (iOS 2.1.2): which text, copy it, and everything
+                        // else under "…" (fix boxes, show boxes, confidence, share / export).
                         Row(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .padding(start = 14.dp, end = 14.dp, top = 10.dp),
+                                .padding(start = 14.dp, end = 14.dp, top = 10.dp, bottom = 4.dp),
                             verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(10.dp)
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
                         ) {
-                            KotenGlassButton(
-                                onClick = { showBoxes = !showBoxes },
-                                modifier = Modifier.height(40.dp),
-                                contentPadding = PaddingValues(horizontal = 14.dp)
+                            Row(
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .background(KotenColor.ink.copy(alpha = 0.08f), RoundedCornerShape(50))
+                                    .padding(3.dp)
                             ) {
-                                Icon(
-                                    imageVector = if (showBoxes) Icons.Default.CropFree else Icons.Default.VisibilityOff,
-                                    contentDescription = null,
-                                    modifier = Modifier.size(18.dp)
+                                TabPill(
+                                    title = stringResource(R.string.tab_ocr),
+                                    selected = selectedTab == 0,
+                                    onClick = { selectedTab = 0 },
+                                    modifier = Modifier.weight(1f)
                                 )
-                                Spacer(modifier = Modifier.width(6.dp))
-                                Text(
-                                    text = stringResource(R.string.boxes_toggle),
-                                    fontSize = 15.sp,
-                                    fontWeight = FontWeight.SemiBold
+                                TabPill(
+                                    title = stringResource(R.string.tab_translation),
+                                    selected = selectedTab == 1,
+                                    onClick = { selectedTab = 1 },
+                                    modifier = Modifier.weight(1f)
                                 )
                             }
 
-                            KotenGlassButton(
-                                onClick = {
-                                    selectedOriginalIndex = null
-                                    showBoxes = true
-                                    boxEditor = BoxEditorState(
-                                        initialDetections = detections,
-                                        imageWidth = bitmap.width,
-                                        imageHeight = bitmap.height
-                                    )
-                                },
-                                modifier = Modifier.height(40.dp),
+                            // Copies the text of the visible tab; off on the translation tab until there is one.
+                            val copyTarget = if (selectedTab == 1) translatedText.orEmpty() else visibleText
+                            KotenProminentButton(
+                                onClick = { copyToClipboard(copyTarget) },
+                                enabled = copyTarget.isNotBlank(),
+                                modifier = Modifier
+                                    .height(40.dp)
+                                    .testTag("copy_button"),
                                 contentPadding = PaddingValues(horizontal = 14.dp)
                             ) {
                                 Icon(
-                                    imageVector = Icons.Default.EditNote,
+                                    imageVector = if (showCopiedToast) Icons.Default.Check else Icons.Default.ContentCopy,
                                     contentDescription = null,
-                                    modifier = Modifier.size(20.dp)
+                                    modifier = Modifier.size(16.dp)
                                 )
                                 Spacer(modifier = Modifier.width(6.dp))
                                 Text(
-                                    text = stringResource(R.string.box_edit_enter),
-                                    fontSize = 15.sp,
-                                    fontWeight = FontWeight.SemiBold
+                                    text = stringResource(if (showCopiedToast) R.string.copied else R.string.copy),
+                                    fontSize = 14.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    maxLines = 1
                                 )
                             }
 
-                            Spacer(modifier = Modifier.weight(1f))
-
+                            val hiddenCount = detections.size - visibleItems.size
                             Box {
                                 KotenGlassButton(
-                                    onClick = { showShareMenu = true },
+                                    onClick = { showMoreMenu = true },
                                     isCircle = true,
-                                    modifier = Modifier.size(44.dp),
+                                    modifier = Modifier
+                                        .size(40.dp)
+                                        .testTag("result_more_menu"),
                                     contentPadding = PaddingValues(0.dp)
                                 ) {
                                     Icon(
-                                        imageVector = Icons.Default.IosShare,
-                                        contentDescription = stringResource(R.string.share),
+                                        imageVector = Icons.Default.MoreHoriz,
+                                        contentDescription = stringResource(R.string.result_more),
                                         modifier = Modifier.size(20.dp)
+                                    )
+                                }
+                                // A dot while the confidence filter hides lines, so the hidden state is not forgotten.
+                                if (hiddenCount > 0) {
+                                    Box(
+                                        modifier = Modifier
+                                            .align(Alignment.TopEnd)
+                                            .size(10.dp)
+                                            .background(KotenColor.shuFill, CircleShape)
                                     )
                                 }
 
                                 DropdownMenu(
-                                    expanded = showShareMenu,
-                                    onDismissRequest = { showShareMenu = false },
+                                    expanded = showMoreMenu,
+                                    onDismissRequest = { showMoreMenu = false },
                                     containerColor = KotenColor.washiCard,
                                     shape = RoundedCornerShape(14.dp),
                                     border = BorderStroke(1.dp, KotenColor.rule)
                                 ) {
+                                    ShareMenuItem(stringResource(R.string.box_edit_enter), Icons.Default.EditNote) {
+                                        showMoreMenu = false
+                                        selectedOriginalIndex = null
+                                        showBoxes = true
+                                        boxEditor = BoxEditorState(
+                                            initialDetections = detections,
+                                            imageWidth = bitmap.width,
+                                            imageHeight = bitmap.height
+                                        )
+                                    }
+                                    DropdownMenuItem(
+                                        text = { Text(stringResource(R.string.boxes_show), fontSize = 16.sp, color = KotenColor.ink) },
+                                        leadingIcon = {
+                                            Icon(Icons.Default.CropFree, contentDescription = null, tint = KotenColor.ink, modifier = Modifier.size(20.dp))
+                                        },
+                                        trailingIcon = {
+                                            Switch(
+                                                checked = showBoxes,
+                                                onCheckedChange = null,
+                                                colors = SwitchDefaults.colors(
+                                                    checkedTrackColor = KotenColor.shu,
+                                                    checkedThumbColor = Color.White
+                                                )
+                                            )
+                                        },
+                                        onClick = { showBoxes = !showBoxes }
+                                    )
+                                    ShareMenuItem(
+                                        if (hiddenCount > 0) {
+                                            stringResource(R.string.confidence_menu_hidden, hiddenCount)
+                                        } else {
+                                            stringResource(R.string.confidence_menu)
+                                        },
+                                        Icons.Default.Tune
+                                    ) {
+                                        showMoreMenu = false
+                                        showConfidence = true
+                                    }
+                                    HorizontalDivider(color = KotenColor.rule)
                                     ShareMenuItem(stringResource(R.string.share_text), Icons.Default.Share) {
-                                        showShareMenu = false
+                                        showMoreMenu = false
                                         val shareBody = if (selectedTab == 1 && translatedText != null) {
                                             translatedText
                                         } else {
@@ -554,11 +618,11 @@ fun ResultScreen(
                                         ExportManager.shareText(context, shareBody)
                                     }
                                     ShareMenuItem(stringResource(R.string.export_txt), Icons.Default.Description) {
-                                        showShareMenu = false
+                                        showMoreMenu = false
                                         ExportManager.exportTxt(context, visibleText)
                                     }
                                     ShareMenuItem(stringResource(R.string.export_pdf), Icons.Default.PictureAsPdf) {
-                                        showShareMenu = false
+                                        showMoreMenu = false
                                         ExportManager.exportPdf(
                                             context,
                                             bitmap,
@@ -569,46 +633,10 @@ fun ResultScreen(
                                 }
                             }
                         }
-
-                        ConfidenceSliderBar(
-                            threshold = confidenceThreshold,
-                            hiddenCount = detections.size - visibleItems.size,
-                            onThresholdChange = { newVal ->
-                                confidenceThreshold = newVal
-                                if (selectedOriginalIndex != null &&
-                                    visibleItems.none { it.originalIndex == selectedOriginalIndex }
-                                ) {
-                                    selectedOriginalIndex = null
-                                }
-                            }
-                        )
-
-                        // Segmented tabs: OCR結果 / 現代語訳
-                        Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(horizontal = 20.dp, vertical = 8.dp)
-                                .background(KotenColor.ink.copy(alpha = 0.08f), RoundedCornerShape(50))
-                                .padding(3.dp)
-                        ) {
-                            TabPill(
-                                title = stringResource(R.string.tab_ocr),
-                                selected = selectedTab == 0,
-                                onClick = { selectedTab = 0 },
-                                modifier = Modifier.weight(1f)
-                            )
-                            TabPill(
-                                title = stringResource(R.string.tab_translation),
-                                selected = selectedTab == 1,
-                                onClick = { selectedTab = 1 },
-                                modifier = Modifier.weight(1f)
-                            )
-                        }
-
                         if (selectedTab == 0) {
                             LazyColumn(
                                 state = listState,
-                                contentPadding = PaddingValues(start = 8.dp, end = 8.dp, top = 4.dp, bottom = 96.dp),
+                                contentPadding = PaddingValues(start = 8.dp, end = 8.dp, top = 4.dp, bottom = 16.dp),
                                 modifier = Modifier.fillMaxSize()
                             ) {
                                 itemsIndexed(
@@ -688,39 +716,6 @@ fun ResultScreen(
                 }
             }
 
-            // Prominent floating Copy button at bottom-right
-            if (boxEditor == null && detections.isNotEmpty() && errorMessage == null) {
-                // iOS hides Copy on the translation tab until there is a translation.
-                val copyTarget = if (selectedTab == 1) translatedText.orEmpty() else visibleText
-                if (copyTarget.isNotBlank()) {
-                    KotenProminentButton(
-                        onClick = { copyToClipboard(copyTarget) },
-                        modifier = Modifier
-                            .align(Alignment.BottomEnd)
-                            .navigationBarsPadding()
-                            .padding(end = 20.dp, bottom = 18.dp)
-                            .height(50.dp),
-                        contentPadding = PaddingValues(horizontal = 20.dp, vertical = 12.dp)
-                    ) {
-                        Icon(
-                            imageVector = if (showCopiedToast) Icons.Default.Check else Icons.Default.ContentCopy,
-                            contentDescription = null,
-                            modifier = Modifier.size(18.dp)
-                        )
-                        Spacer(modifier = Modifier.width(8.dp))
-                        Text(
-                            text = if (showCopiedToast) {
-                                stringResource(R.string.copied)
-                            } else {
-                                stringResource(R.string.copy)
-                            },
-                            fontSize = 15.sp,
-                            fontWeight = FontWeight.Bold
-                        )
-                    }
-                }
-            }
-
             // Top "Copied" capsule toast
             AnimatedVisibility(
                 visible = showCopiedToast,
@@ -766,6 +761,31 @@ fun ResultScreen(
                         .scale(stampScale.value)
                         .rotate(-3f)
                         .alpha(stampAlpha.value)
+                )
+            }
+        }
+    }
+
+    // Confidence slider in a short sheet, so the page with its boxes stays visible above it (iOS 2.1.2).
+    if (showConfidence) {
+        ModalBottomSheet(
+            onDismissRequest = { showConfidence = false },
+            sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
+            containerColor = KotenColor.washiCard,
+            scrimColor = Color.Black.copy(alpha = 0.12f)
+        ) {
+            Column(modifier = Modifier.padding(bottom = 20.dp).testTag("confidence_sheet")) {
+                ConfidenceSliderBar(
+                    threshold = confidenceThreshold,
+                    hiddenCount = detections.size - visibleItems.size,
+                    onThresholdChange = { newVal ->
+                        confidenceThreshold = newVal
+                        if (selectedOriginalIndex != null &&
+                            ConfidenceFilter.visible(detections, newVal).none { it.originalIndex == selectedOriginalIndex }
+                        ) {
+                            selectedOriginalIndex = null
+                        }
+                    }
                 )
             }
         }
@@ -936,6 +956,63 @@ private fun ResultBoxesDrawing(
     }
 }
 
+/**
+ * While editing boxes: the chosen line's number and text on one line, with ‹ › to step through the
+ * lines (handy for boxes too small to tap). Stands in for the line list, which is hidden while
+ * editing so the page gets the room (iOS 2.1.2 `selectedLineBar`).
+ */
+@Composable
+private fun SelectedLineBar(editor: BoxEditorState, enabled: Boolean) {
+    val items = editor.detections
+    val sel = editor.selectedIndex
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(start = 14.dp, end = 14.dp, top = 8.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        IconButton(
+            onClick = { editor.select(BoxEditGeometry.stepSelection(sel, -1, items.size)) },
+            enabled = enabled && items.isNotEmpty(),
+            modifier = Modifier.size(40.dp).testTag("box_edit_prev")
+        ) {
+            Icon(Icons.Default.ChevronLeft, contentDescription = stringResource(R.string.box_edit_prev), tint = KotenColor.ink)
+        }
+        Box(
+            modifier = Modifier.weight(1f).testTag("box_edit_selected_line"),
+            contentAlignment = Alignment.Center
+        ) {
+            if (sel != null && sel in items.indices) {
+                Text(
+                    text = buildAnnotatedString {
+                        withStyle(SpanStyle(color = KotenColor.shu, fontSize = 13.sp, fontWeight = FontWeight.SemiBold)) {
+                            append("${sel + 1}  ")
+                        }
+                        append(items[sel].text.ifEmpty { "---" })
+                    },
+                    style = minchoStyle(size = 17.sp, color = KotenColor.ink),
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+            } else {
+                Text(
+                    text = stringResource(R.string.box_edit_line_total, items.size),
+                    style = minchoStyle(size = 15.sp, color = KotenColor.inkSecondary),
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+            }
+        }
+        IconButton(
+            onClick = { editor.select(BoxEditGeometry.stepSelection(sel, 1, items.size)) },
+            enabled = enabled && items.isNotEmpty(),
+            modifier = Modifier.size(40.dp).testTag("box_edit_next")
+        ) {
+            Icon(Icons.Default.ChevronRight, contentDescription = stringResource(R.string.box_edit_next), tint = KotenColor.ink)
+        }
+    }
+}
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun ConfidenceSliderBar(
@@ -1065,7 +1142,7 @@ private fun TranslationTabContent(
         modifier = Modifier
             .fillMaxSize()
             .verticalScroll(rememberScrollState())
-            .padding(start = 20.dp, end = 20.dp, top = 8.dp, bottom = 96.dp),
+            .padding(start = 20.dp, end = 20.dp, top = 8.dp, bottom = 16.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
         when {
